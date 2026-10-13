@@ -8,7 +8,7 @@ import {
 import { THEMES } from './math/themes';
 import { parseEquation, ParsedEquationInfo, EvalScope } from './math/evaluator';
 import { CurvePreset } from './math/presets';
-import { fetchGraphByShareCode } from './lib/graphService';
+import { fetchGraphByShareCode, GraphDocument } from './lib/graphService';
 import { TopNav } from './components/TopNav';
 import { Sidebar } from './components/Sidebar';
 import { GraphCanvas } from './components/GraphCanvas';
@@ -57,6 +57,7 @@ export default function App() {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isP2PRoomOpen, setIsP2PRoomOpen] = useState(false);
   const [isGraphTheoryOpen, setIsGraphTheoryOpen] = useState(false);
+  const [optimisticSubmissions, setOptimisticSubmissions] = useState<GraphDocument[]>([]);
 
   // WebRTC P2P Engine Instance
   const p2pEngine = useMemo(() => new P2PEngine(), []);
@@ -664,6 +665,12 @@ export default function App() {
         gridMode={gridMode}
         themeId={themeId}
         onOpenAuth={() => setIsAuthOpen(true)}
+        onSubmissionSuccess={(newGraph) => {
+          setOptimisticSubmissions((prev) => [
+            newGraph,
+            ...prev.filter((g) => g.id !== newGraph.id && g.shareCode !== newGraph.shareCode),
+          ]);
+        }}
       />
 
       {/* Community & Personal Submissions Gallery Archive */}
@@ -671,6 +678,7 @@ export default function App() {
         isOpen={isGalleryOpen}
         onClose={() => setIsGalleryOpen(false)}
         theme={theme}
+        optimisticSubmissions={optimisticSubmissions}
         onLoadGraphSubmission={handleLoadGraphSubmission}
       />
 

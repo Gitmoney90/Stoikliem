@@ -24,6 +24,7 @@ interface CommunityGalleryModalProps {
   isOpen: boolean;
   onClose: () => void;
   theme: ThemeConfig;
+  optimisticSubmissions?: GraphDocument[];
   onLoadGraphSubmission: (data: {
     title: string;
     expressions: GraphExpression[];
@@ -37,6 +38,7 @@ export const CommunityGalleryModal: React.FC<CommunityGalleryModalProps> = ({
   isOpen,
   onClose,
   theme,
+  optimisticSubmissions = [],
   onLoadGraphSubmission,
 }) => {
   const { user } = useAuth();
@@ -54,21 +56,39 @@ export const CommunityGalleryModal: React.FC<CommunityGalleryModalProps> = ({
       setLoading(true);
       try {
         const pub = await fetchPublicGraphs(30);
-        setPublicGraphs(pub);
+        // Merge with any freshly submitted optimistic posts
+        const mergedPublic = [...pub];
+        optimisticSubmissions.forEach((opt) => {
+          if (opt.isPublic && !mergedPublic.some((g) => g.id === opt.id || g.shareCode === opt.shareCode)) {
+            mergedPublic.unshift(opt);
+          }
+        });
+        setPublicGraphs(mergedPublic);
 
         if (user) {
           const usr = await fetchUserGraphs(user.uid);
-          setUserGraphs(usr);
+          const mergedUser = [...usr];
+          optimisticSubmissions.forEach((opt) => {
+            if (
+              opt.authorId === user.uid &&
+              !mergedUser.some((g) => g.id === opt.id || g.shareCode === opt.shareCode)
+            ) {
+              mergedUser.unshift(opt);
+            }
+          });
+          setUserGraphs(mergedUser);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error loading gallery graphs:', err);
+        const errMsg = err?.message || 'Could not load community submissions.';
+        window.alert(`Archive Error: ${errMsg}`);
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
-  }, [isOpen, user]);
+  }, [isOpen, user, optimisticSubmissions]);
 
   if (!isOpen) return null;
 

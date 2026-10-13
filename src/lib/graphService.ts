@@ -122,8 +122,22 @@ export async function submitGraph(params: {
 
   const docRef = doc(db, 'graphs', graphId);
 
+  // Wrap network operation with a 12-second timeout to prevent indefinite hanging
+  const setDocPromise = setDoc(docRef, docData);
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(
+      () =>
+        reject(
+          new Error(
+            'Firestore submission timed out. Please check network connectivity or try again.'
+          )
+        ),
+      12000
+    )
+  );
+
   try {
-    await setDoc(docRef, docData);
+    await Promise.race([setDocPromise, timeoutPromise]);
     return {
       id: graphId,
       ...docData,

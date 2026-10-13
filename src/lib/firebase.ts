@@ -21,8 +21,8 @@ export const provider = new GoogleAuthProvider();
 export const googleProvider = provider;
 export { GoogleAuthProvider };
 
-// Initialize Firestore with designated database ID
-export const db = getFirestore(app, "ai-studio-principiagraphic-95936d98-53a4-4c26-bd25-f9b54f055fee");
+// Initialize Firestore with designated app instance per requirement
+export const db = getFirestore(app);
 
 export enum OperationType {
   CREATE = 'create',

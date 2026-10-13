@@ -13,6 +13,7 @@ interface ShareSubmissionModalProps {
   gridMode: GridMode;
   themeId: ThemeId;
   onOpenAuth: () => void;
+  onSubmissionSuccess?: (newGraph: GraphDocument) => void;
 }
 
 export const ShareSubmissionModal: React.FC<ShareSubmissionModalProps> = ({
@@ -24,6 +25,7 @@ export const ShareSubmissionModal: React.FC<ShareSubmissionModalProps> = ({
   gridMode,
   themeId,
   onOpenAuth,
+  onSubmissionSuccess,
 }) => {
   const { user } = useAuth();
   const [title, setTitle] = useState('');
@@ -38,7 +40,7 @@ export const ShareSubmissionModal: React.FC<ShareSubmissionModalProps> = ({
 
   // Derive default title from first expression
   const defaultTitle =
-    title ||
+    title.trim() ||
     (expressions.find((e) => e.visible)?.rawText
       ? `Graph: ${expressions.find((e) => e.visible)?.rawText}`
       : 'Mathematical Figure');
@@ -53,8 +55,57 @@ export const ShareSubmissionModal: React.FC<ShareSubmissionModalProps> = ({
     setIsSubmitting(true);
     setError(null);
 
+    // Prepare optimistic post document so it appears on screen instantly without waiting for network round-trip
+    const tempId = `temp_${Date.now()}`;
+    const generatedShareCode = `pg_${Math.random().toString(36).substring(2, 9)}`;
+    const minimalExpressions = expressions.map((exp) => ({
+      rawText: exp.rawText,
+      color: exp.color,
+      visible: exp.visible,
+      type: exp.type,
+      sliderValue: exp.sliderValue,
+      sliderMin: exp.sliderMin,
+      sliderMax: exp.sliderMax,
+      sliderStep: exp.sliderStep,
+      tMin: exp.tMin,
+      tMax: exp.tMax,
+      thetaMin: exp.thetaMin,
+      thetaMax: exp.thetaMax,
+      showDerivative: exp.showDerivative,
+      showIntegral: exp.showIntegral,
+      integralA: exp.integralA,
+      integralB: exp.integralB,
+    }));
+    const minimalViewport = {
+      xMin: viewport.xMin,
+      xMax: viewport.xMax,
+      yMin: viewport.yMin,
+      yMax: viewport.yMax,
+    };
+
+    const optimisticDoc: GraphDocument = {
+      id: tempId,
+      title: defaultTitle,
+      description: description.trim(),
+      authorId: user.uid,
+      authorName: user.displayName || user.email?.split('@')[0] || 'Anonymous Scholar',
+      shareCode: generatedShareCode,
+      isPublic,
+      expressionsJson: JSON.stringify(minimalExpressions),
+      viewportJson: JSON.stringify(minimalViewport),
+      gridMode,
+      themeId,
+      createdAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
+    };
+
+    // OPTIMISTIC UI: Immediately display the submitted post on screen without freezing or waiting for network round-trip
+    setSubmittedGraph(optimisticDoc);
+    if (onSubmissionSuccess) {
+      onSubmissionSuccess(optimisticDoc);
+    }
+
     try {
-      const doc = await submitGraph({
+      const realDoc = await submitGraph({
         title: defaultTitle,
         description,
         authorId: user.uid,
@@ -65,9 +116,21 @@ export const ShareSubmissionModal: React.FC<ShareSubmissionModalProps> = ({
         gridMode,
         themeId,
       });
-      setSubmittedGraph(doc);
+
+      // Synchronize with the persisted document from Firestore
+      setSubmittedGraph(realDoc);
+      if (onSubmissionSuccess) {
+        onSubmissionSuccess(realDoc);
+      }
     } catch (err: any) {
-      setError(err?.message || 'Failed to submit graph to cloud.');
+      const errorMsg =
+        err?.message || (typeof err === 'string' ? err : 'Unknown submission error');
+      console.error('Community submission error:', errorMsg);
+      setError(errorMsg);
+      // Revert optimistic state on failure so state remains consistent
+      setSubmittedGraph(null);
+      // If an error occurs, show an alert with the exact error message instead of freezing
+      window.alert(`Submission Error: ${errorMsg}`);
     } finally {
       setIsSubmitting(false);
     }
