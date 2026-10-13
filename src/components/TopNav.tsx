@@ -11,6 +11,7 @@ import {
   User as UserIcon,
   LogIn,
   Radio,
+  Network,
 } from 'lucide-react';
 
 interface TopNavProps {
@@ -25,6 +26,7 @@ interface TopNavProps {
   onOpenAuth: () => void;
   onOpenP2PRoom: () => void;
   isP2PConnected: boolean;
+  onOpenGraphTheory: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -39,6 +41,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   onOpenAuth,
   onOpenP2PRoom,
   isP2PConnected,
+  onOpenGraphTheory,
 }) => {
   const { user } = useAuth();
 
@@ -86,6 +89,15 @@ export const TopNav: React.FC<TopNavProps> = ({
           <span>Calculus Studio</span>
         </button>
 
+        <button
+          onClick={onOpenGraphTheory}
+          className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1"
+          style={{ color: theme.textSecondary }}
+        >
+          <Network className="w-3.5 h-3.5" />
+          <span>Graph Theory</span>
+        </button>
+
         {/* P2P Room Link with Live Status */}
         <button
           onClick={onOpenP2PRoom}
@@ -120,11 +132,21 @@ export const TopNav: React.FC<TopNavProps> = ({
 
       {/* Zone 3: 1 Primary Action (Share Submission) + Account Affordance */}
       <div className="flex items-center gap-3 shrink-0">
+        {/* Graph Theory Quick Button on Mobile */}
+        <button
+          onClick={onOpenGraphTheory}
+          className="md:hidden p-2 rounded-lg border text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5"
+          style={{ borderColor: theme.border, color: theme.textPrimary }}
+          title="Graph Theory Explorer"
+        >
+          <Network className="w-4 h-4" />
+        </button>
+
         {/* P2P Quick Button on Mobile */}
         <button
           onClick={onOpenP2PRoom}
-          className="md:hidden p-2 rounded-lg border text-xs font-medium hover:bg-black/5"
-          style={{ borderColor: theme.border, color: theme.textPrimary }}
+          className="md:hidden p-2 rounded-lg border text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5"
+          style={{ borderColor: theme.border, color: isP2PConnected ? '#16A34A' : theme.textPrimary }}
           title="P2P Room"
         >
           <Radio className="w-4 h-4" />

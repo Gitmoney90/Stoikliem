@@ -21,6 +21,7 @@ import { AuthModal } from './components/AuthModal';
 import { ShareSubmissionModal } from './components/ShareSubmissionModal';
 import { CommunityGalleryModal } from './components/CommunityGalleryModal';
 import { P2PRoomModal } from './components/P2PRoomModal';
+import { GraphTheoryModal } from './components/GraphTheoryModal';
 import { P2PEngine, P2PConnectionState } from './lib/webrtc';
 import { ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 
@@ -55,6 +56,7 @@ export default function App() {
   const [isShareSubmissionOpen, setIsShareSubmissionOpen] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isP2PRoomOpen, setIsP2PRoomOpen] = useState(false);
+  const [isGraphTheoryOpen, setIsGraphTheoryOpen] = useState(false);
 
   // WebRTC P2P Engine Instance
   const p2pEngine = useMemo(() => new P2PEngine(), []);
@@ -505,6 +507,7 @@ export default function App() {
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenP2PRoom={() => setIsP2PRoomOpen(true)}
         isP2PConnected={p2pConnectionState === 'connected'}
+        onOpenGraphTheory={() => setIsGraphTheoryOpen(true)}
       />
 
       {/* Shared Graph Loaded Toast Banner */}
@@ -683,6 +686,13 @@ export default function App() {
         onLoadSyncedGraph={handleLoadGraphSubmission}
         p2pEngine={p2pEngine}
         connectionState={p2pConnectionState}
+      />
+
+      {/* Graph Theory Interactive Section & Treatise Modal */}
+      <GraphTheoryModal
+        isOpen={isGraphTheoryOpen}
+        onClose={() => setIsGraphTheoryOpen(false)}
+        theme={theme}
       />
     </div>
   );
