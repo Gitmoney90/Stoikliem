@@ -1,0 +1,522 @@
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import {
+  Viewport,
+  GraphExpression,
+  GridMode,
+  ThemeId,
+} from './types/graph';
+import { THEMES } from './math/themes';
+import { parseEquation, ParsedEquationInfo, EvalScope } from './math/evaluator';
+import { CurvePreset, CLASSIC_PRESETS } from './math/presets';
+import { TopNav } from './components/TopNav';
+import { Sidebar } from './components/Sidebar';
+import { GraphCanvas } from './components/GraphCanvas';
+import { AnalysisPanel } from './components/AnalysisPanel';
+import { PresetsModal } from './components/PresetsModal';
+import { TableModal } from './components/TableModal';
+import { SettingsModal } from './components/SettingsModal';
+import { ExportModal } from './components/ExportModal';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+export default function App() {
+  // Theme & Grid State
+  const [themeId, setThemeId] = useState<ThemeId>('parchment');
+  const [gridMode, setGridMode] = useState<GridMode>('cartesian');
+  const [showMinorGrid, setShowMinorGrid] = useState<boolean>(true);
+  const [angleUnit, setAngleUnit] = useState<'rad' | 'deg'>('rad');
+
+  const theme = THEMES[themeId] || THEMES.parchment;
+
+  // Viewport State
+  const [viewport, setViewport] = useState<Viewport>({
+    xMin: -8,
+    xMax: 8,
+    yMin: -6,
+    yMax: 6,
+    width: 0,
+    height: 0,
+  });
+
+  // UI Panels & Modals State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isKeypadOpen, setIsKeypadOpen] = useState(false);
+  const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
+  const [isPresetsOpen, setIsPresetsOpen] = useState(false);
+  const [isTableOpen, setIsTableOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+
+  // Initial Mathematical Expressions: showcases implicit, parametric, polar, and dynamic slider!
+  const [expressions, setExpressions] = useState<GraphExpression[]>([
+    {
+      id: 'expr_slider_a',
+      rawText: 'a = 2',
+      color: '#B45309',
+      visible: true,
+      type: 'slider',
+      variableName: 'a',
+      sliderValue: 2,
+      sliderMin: 0.5,
+      sliderMax: 5,
+      sliderStep: 0.1,
+      isPlaying: false,
+      playSpeed: 1,
+      playDirection: 1,
+    },
+    {
+      id: 'expr_folium',
+      rawText: 'x^3 + y^3 - 3*a*x*y = 0',
+      color: '#1E3A8A',
+      visible: true,
+      type: 'implicit',
+    },
+    {
+      id: 'expr_rose',
+      rawText: 'r = 3 * cos(3 * theta)',
+      color: '#B91C1C',
+      visible: true,
+      type: 'polar',
+      thetaMin: 0,
+      thetaMax: Math.PI,
+    },
+    {
+      id: 'expr_lissajous',
+      rawText: '( 4 * sin(2*t), 4 * sin(3*t) )',
+      color: '#15803D',
+      visible: false,
+      type: 'parametric',
+      tMin: 0,
+      tMax: 2 * Math.PI,
+    },
+  ]);
+
+  const [activeExpressionId, setActiveExpressionId] = useState<string | null>(
+    'expr_folium'
+  );
+
+  // Hydrate from URL state hash if available
+  useEffect(() => {
+    try {
+      const hash = window.location.hash;
+      if (hash.includes('state=')) {
+        const raw = decodeURIComponent(hash.split('state=')[1]);
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const loaded: GraphExpression[] = parsed.map((item, idx) => ({
+            id: `imported_${idx}_${Date.now()}`,
+            rawText: item.t,
+            color: item.c || theme.curvePalette[idx % theme.curvePalette.length],
+            visible: item.v !== false,
+            type: 'explicit',
+          }));
+          setExpressions(loaded);
+          setActiveExpressionId(loaded[0].id);
+        }
+      }
+    } catch {
+      // Ignore hash parse error
+    }
+  }, [theme.curvePalette]);
+
+  // Compute variable scope from sliders
+  const scope: EvalScope = useMemo(() => {
+    const sc: EvalScope = {};
+    expressions.forEach((expr) => {
+      if (expr.type === 'slider' && expr.variableName && expr.sliderValue !== undefined) {
+        sc[expr.variableName] = expr.sliderValue;
+      }
+    });
+    return sc;
+  }, [expressions]);
+
+  // Compile equations & cache AST
+  const parsedEquations = useMemo(() => {
+    const map = new Map<string, ParsedEquationInfo>();
+    expressions.forEach((expr) => {
+      try {
+        const parsed = parseEquation(expr.rawText, angleUnit);
+        map.set(expr.id, parsed);
+        // Sync expression type and variable name if detected
+        if (parsed.type === 'slider' && expr.type !== 'slider') {
+          expr.type = 'slider';
+          expr.variableName = parsed.variableName;
+          if (expr.sliderValue === undefined) {
+            expr.sliderValue = parsed.variableValue ?? 1;
+            expr.sliderMin = -10;
+            expr.sliderMax = 10;
+            expr.sliderStep = 0.1;
+          }
+        } else if (parsed.type !== 'slider' && expr.type !== parsed.type) {
+          expr.type = parsed.type;
+        }
+        expr.error = null;
+      } catch (err: any) {
+        expr.error = err.message || 'Syntax error';
+      }
+    });
+    return map;
+  }, [expressions, angleUnit]);
+
+  // Animation Loop for Playing Sliders
+  const animFrameRef = useRef<number | null>(null);
+  useEffect(() => {
+    const hasPlaying = expressions.some((e) => e.type === 'slider' && e.isPlaying);
+    if (!hasPlaying) {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      return;
+    }
+
+    let lastTime = performance.now();
+
+    const loop = (time: number) => {
+      const dt = (time - lastTime) / 1000;
+      lastTime = time;
+
+      setExpressions((prev) =>
+        prev.map((expr) => {
+          if (!expr.isPlaying || expr.type !== 'slider' || expr.sliderValue === undefined) {
+            return expr;
+          }
+
+          const min = expr.sliderMin ?? -10;
+          const max = expr.sliderMax ?? 10;
+          const span = max - min;
+          const speed = (expr.playSpeed ?? 1) * (span / 4); // traverse span in ~4 seconds
+          let dir = expr.playDirection ?? 1;
+          let nextVal = expr.sliderValue + dir * speed * dt;
+
+          if (nextVal >= max) {
+            nextVal = max;
+            dir = -1;
+          } else if (nextVal <= min) {
+            nextVal = min;
+            dir = 1;
+          }
+
+          return {
+            ...expr,
+            sliderValue: parseFloat(nextVal.toFixed(3)),
+            playDirection: dir,
+          };
+        })
+      );
+
+      animFrameRef.current = requestAnimationFrame(loop);
+    };
+
+    animFrameRef.current = requestAnimationFrame(loop);
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, [expressions]);
+
+  // Expression Handlers
+  const handleAddExpression = (
+    typeHint: 'function' | 'slider' | 'parametric' | 'polar' = 'function'
+  ) => {
+    const newId = `expr_${Date.now()}`;
+    const nextColor = theme.curvePalette[expressions.length % theme.curvePalette.length];
+
+    let defaultText = 'y = x^2 - 4';
+    let type: any = 'explicit';
+
+    if (typeHint === 'slider') {
+      const letters = 'bckmnpqr';
+      const usedVars = new Set(expressions.map((e) => e.variableName).filter(Boolean));
+      const chosen = letters.split('').find((l) => !usedVars.has(l)) || 'b';
+      defaultText = `${chosen} = 1`;
+      type = 'slider';
+    } else if (typeHint === 'parametric') {
+      defaultText = '( 3*cos(t), 3*sin(t) )';
+      type = 'parametric';
+    } else if (typeHint === 'polar') {
+      defaultText = 'r = 2 * (1 - cos(theta))';
+      type = 'polar';
+    }
+
+    const newExpr: GraphExpression = {
+      id: newId,
+      rawText: defaultText,
+      color: nextColor,
+      visible: true,
+      type,
+      sliderValue: typeHint === 'slider' ? 1 : undefined,
+      sliderMin: -10,
+      sliderMax: 10,
+      sliderStep: 0.1,
+    };
+
+    setExpressions((prev) => [...prev, newExpr]);
+    setActiveExpressionId(newId);
+  };
+
+  const handleUpdateText = (id: string, text: string) => {
+    setExpressions((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, rawText: text } : e))
+    );
+  };
+
+  const handleToggleVisible = (id: string) => {
+    setExpressions((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, visible: !e.visible } : e))
+    );
+  };
+
+  const handleChangeColor = (id: string, color: string) => {
+    setExpressions((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, color } : e))
+    );
+  };
+
+  const handleDeleteExpression = (id: string) => {
+    setExpressions((prev) => prev.filter((e) => e.id !== id));
+    if (activeExpressionId === id) {
+      setActiveExpressionId(null);
+    }
+  };
+
+  const handleDuplicateExpression = (id: string) => {
+    const item = expressions.find((e) => e.id === id);
+    if (!item) return;
+    const newId = `expr_${Date.now()}`;
+    const nextColor = theme.curvePalette[(expressions.length + 1) % theme.curvePalette.length];
+    setExpressions((prev) => [
+      ...prev,
+      { ...item, id: newId, color: nextColor },
+    ]);
+    setActiveExpressionId(newId);
+  };
+
+  const handleUpdateExpressionData = (id: string, data: Partial<GraphExpression>) => {
+    setExpressions((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, ...data } : e))
+    );
+  };
+
+  // Preset Loader
+  const handleLoadPreset = (preset: CurvePreset) => {
+    const loaded: GraphExpression[] = preset.expressions.map((exp, idx) => ({
+      id: `preset_${preset.id}_${idx}_${Date.now()}`,
+      rawText: exp.rawText,
+      color: exp.color || theme.curvePalette[idx % theme.curvePalette.length],
+      visible: true,
+      type: 'explicit',
+      sliderValue: exp.sliderValue,
+      sliderMin: exp.sliderMin ?? -10,
+      sliderMax: exp.sliderMax ?? 10,
+      sliderStep: exp.sliderStep ?? 0.1,
+      tMin: exp.tMin,
+      tMax: exp.tMax,
+      thetaMin: exp.thetaMin,
+      thetaMax: exp.thetaMax,
+      showDerivative: exp.showDerivative,
+      showIntegral: exp.showIntegral,
+      integralA: exp.integralA,
+      integralB: exp.integralB,
+    }));
+
+    setExpressions(loaded);
+    setActiveExpressionId(loaded[loaded.length - 1]?.id || null);
+
+    if (preset.gridMode) {
+      setGridMode(preset.gridMode);
+    }
+
+    setViewport((prev) => ({
+      ...prev,
+      xMin: preset.viewport.xMin,
+      xMax: preset.viewport.xMax,
+      yMin: preset.viewport.yMin,
+      yMax: preset.viewport.yMax,
+    }));
+  };
+
+  // Add multiple plotted point expressions from Value Table
+  const handleAddPointExpressions = (points: { x: number; y: number; label: string }[]) => {
+    const newExprs: GraphExpression[] = points.map((p, i) => ({
+      id: `pt_${Date.now()}_${i}`,
+      rawText: `(${p.x}, ${p.y})`,
+      color: theme.accent,
+      visible: true,
+      type: 'point',
+      pointX: p.x,
+      pointY: p.y,
+      pointLabel: p.label,
+    }));
+    setExpressions((prev) => [...prev, ...newExprs]);
+  };
+
+  // Virtual Keypad insert & backspace
+  const handleInsertKeypadText = (str: string) => {
+    if (!activeExpressionId) {
+      if (expressions.length > 0) {
+        setActiveExpressionId(expressions[0].id);
+      } else {
+        handleAddExpression();
+        return;
+      }
+    }
+
+    setExpressions((prev) =>
+      prev.map((e) => {
+        if (e.id === activeExpressionId) {
+          return { ...e, rawText: e.rawText + str };
+        }
+        return e;
+      })
+    );
+  };
+
+  const handleKeypadBackspace = () => {
+    if (!activeExpressionId) return;
+    setExpressions((prev) =>
+      prev.map((e) => {
+        if (e.id === activeExpressionId && e.rawText.length > 0) {
+          return { ...e, rawText: e.rawText.slice(0, -1) };
+        }
+        return e;
+      })
+    );
+  };
+
+  const handleKeypadClear = () => {
+    if (!activeExpressionId) return;
+    setExpressions((prev) =>
+      prev.map((e) => (e.id === activeExpressionId ? { ...e, rawText: '' } : e))
+    );
+  };
+
+  return (
+    <div
+      className="flex flex-col w-screen h-screen overflow-hidden select-none"
+      style={{
+        backgroundColor: theme.bgCanvas,
+        color: theme.textPrimary,
+      }}
+    >
+      {/* Top Bar Navigation (Strict 3-Zone Contract) */}
+      <TopNav
+        theme={theme}
+        onOpenPresets={() => setIsPresetsOpen(true)}
+        onToggleAnalysis={() => setIsAnalysisOpen(!isAnalysisOpen)}
+        isAnalysisOpen={isAnalysisOpen}
+        onOpenTable={() => setIsTableOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenExport={() => setIsExportOpen(true)}
+      />
+
+      {/* Main Workspace Frame */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Responsive Collapsible Sidebar */}
+        <Sidebar
+          expressions={expressions}
+          parsedEquations={parsedEquations}
+          activeExpressionId={activeExpressionId}
+          theme={theme}
+          isOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          onSelectExpression={(id) => setActiveExpressionId(id)}
+          onAddExpression={handleAddExpression}
+          onUpdateText={handleUpdateText}
+          onToggleVisible={handleToggleVisible}
+          onChangeColor={handleChangeColor}
+          onDeleteExpression={handleDeleteExpression}
+          onDuplicateExpression={handleDuplicateExpression}
+          onUpdateExpressionData={handleUpdateExpressionData}
+          isKeypadOpen={isKeypadOpen}
+          onToggleKeypad={() => setIsKeypadOpen(!isKeypadOpen)}
+          onInsertKeypadText={handleInsertKeypadText}
+          onKeypadBackspace={handleKeypadBackspace}
+          onKeypadClear={handleKeypadClear}
+        />
+
+        {/* Sidebar Collapse Toggle Button */}
+        <button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          title={isSidebarOpen ? 'Hide Expressions Panel' : 'Show Expressions Panel'}
+          className="absolute left-0 top-3 z-20 p-1.5 rounded-r-lg border-y border-r shadow-md transition-transform hover:opacity-90"
+          style={{
+            transform: isSidebarOpen ? 'translateX(320px)' : 'translateX(0)',
+            backgroundColor: theme.bgSidebar,
+            borderColor: theme.border,
+            color: theme.textSecondary,
+          }}
+        >
+          {isSidebarOpen ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+        </button>
+
+        {/* Graphing Engine Canvas Area */}
+        <main className="flex-1 h-full relative overflow-hidden">
+          <GraphCanvas
+            viewport={viewport}
+            onViewportChange={setViewport}
+            expressions={expressions}
+            parsedEquations={parsedEquations}
+            scope={scope}
+            theme={theme}
+            gridMode={gridMode}
+            showMinorGrid={showMinorGrid}
+            angleUnit={angleUnit}
+            activeExpressionId={activeExpressionId}
+            onSelectExpression={(id) => setActiveExpressionId(id)}
+          />
+
+          {/* Calculus Studio Drawer */}
+          <AnalysisPanel
+            isOpen={isAnalysisOpen}
+            onClose={() => setIsAnalysisOpen(false)}
+            theme={theme}
+            expressions={expressions}
+            parsedEquations={parsedEquations}
+            activeExpressionId={activeExpressionId}
+            onSelectExpression={(id) => setActiveExpressionId(id)}
+            viewport={viewport}
+            scope={scope}
+            onUpdateExpressionData={handleUpdateExpressionData}
+          />
+        </main>
+      </div>
+
+      {/* Classical Curve Presets Gallery Modal */}
+      <PresetsModal
+        isOpen={isPresetsOpen}
+        onClose={() => setIsPresetsOpen(false)}
+        theme={theme}
+        onLoadPreset={handleLoadPreset}
+      />
+
+      {/* Table of Values Modal */}
+      <TableModal
+        isOpen={isTableOpen}
+        onClose={() => setIsTableOpen(false)}
+        theme={theme}
+        expressions={expressions}
+        parsedEquations={parsedEquations}
+        scope={scope}
+        onAddPointExpressions={handleAddPointExpressions}
+      />
+
+      {/* Cartography & Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        currentTheme={theme}
+        onSelectTheme={(id) => setThemeId(id)}
+        gridMode={gridMode}
+        onSelectGridMode={setGridMode}
+        showMinorGrid={showMinorGrid}
+        onToggleMinorGrid={setShowMinorGrid}
+        angleUnit={angleUnit}
+        onSelectAngleUnit={setAngleUnit}
+      />
+
+      {/* Export & Share Modal */}
+      <ExportModal
+        isOpen={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+        theme={theme}
+        expressions={expressions}
+      />
+    </div>
+  );
+}
