@@ -43,7 +43,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   isP2PConnected,
   onOpenGraphTheory,
 }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   return (
     <header
@@ -152,10 +152,14 @@ export const TopNav: React.FC<TopNavProps> = ({
           <Radio className="w-4 h-4" />
         </button>
 
-        {/* User Account / Sign In */}
+        {/* User Account / Profile Dossier */}
         <button
           onClick={onOpenAuth}
-          title={user ? `Signed in as ${user.displayName || user.email}` : 'Sign In'}
+          title={
+            user
+              ? `Profile: @${profile?.username || user.displayName || user.email} (${profile?.academicTitle || 'Scholar'})`
+              : 'Sign In'
+          }
           className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors whitespace-nowrap"
           style={{
             borderColor: theme.border,
@@ -164,18 +168,20 @@ export const TopNav: React.FC<TopNavProps> = ({
         >
           {user ? (
             <>
-              {user.photoURL ? (
+              {profile?.avatarUrl || user.photoURL ? (
                 <img
-                  src={user.photoURL}
-                  alt={user.displayName || 'User'}
-                  className="w-4 h-4 rounded-full"
+                  src={profile?.avatarUrl || user.photoURL || ''}
+                  alt={profile?.displayName || user.displayName || 'User'}
+                  className="w-4 h-4 rounded-full object-cover"
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <UserIcon className="w-3.5 h-3.5 text-amber-600" />
+                <span className="text-xs leading-none">
+                  {profile?.avatarEmoji || '📐'}
+                </span>
               )}
-              <span className="hidden sm:inline font-mono truncate max-w-[100px]">
-                {user.displayName?.split(' ')[0] || user.email?.split('@')[0]}
+              <span className="hidden sm:inline font-mono truncate max-w-[120px] font-semibold">
+                @{profile?.username || user.displayName?.split(' ')[0] || user.email?.split('@')[0]}
               </span>
             </>
           ) : (

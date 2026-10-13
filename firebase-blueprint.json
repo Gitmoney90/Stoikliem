@@ -1,5 +1,53 @@
 {
   "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with customizable username, bio, academic title, and avatar styling",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "username": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "bio": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "academicTitle": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "avatarUrl": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "avatarEmoji": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "username",
+        "displayName"
+      ]
+    },
     "GraphSubmission": {
       "title": "GraphSubmission",
       "description": "A saved mathematical graph submission with expressions, viewport, and cartography configurations",
@@ -64,6 +112,10 @@
     }
   },
   "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document keyed by auth UID"
+    },
     "/graphs/{graphId}": {
       "schema": "GraphSubmission",
       "description": "Collection of user-created mathematical graph submissions"

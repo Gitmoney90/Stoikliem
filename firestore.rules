@@ -22,6 +22,41 @@ service cloud.firestore {
       return resource.data;
     }
 
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'username', 'displayName']) &&
+        data.keys().hasOnly(['uid', 'username', 'displayName', 'bio', 'academicTitle', 'avatarUrl', 'avatarEmoji', 'createdAt', 'updatedAt']) &&
+        data.uid is string && data.uid == request.auth.uid &&
+        data.username is string && data.username.size() >= 2 && data.username.size() <= 50 &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+        (!('bio' in data) || (data.bio is string && data.bio.size() <= 300)) &&
+        (!('academicTitle' in data) || (data.academicTitle is string && data.academicTitle.size() <= 100)) &&
+        (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 1000)) &&
+        (!('avatarEmoji' in data) || (data.avatarEmoji is string && data.avatarEmoji.size() <= 10));
+    }
+
+    match /users/{userId} {
+      // Anyone can read profiles to see usernames on submissions and public author cards
+      allow get: if isValidId(userId);
+      allow list: if isSignedIn();
+
+      // Only the authenticated user can create or modify their own profile
+      allow create: if isValidId(userId) &&
+        isSignedIn() &&
+        userId == request.auth.uid &&
+        isValidUserProfile(incoming()) &&
+        incoming().uid == request.auth.uid;
+
+      allow update: if isValidId(userId) &&
+        isSignedIn() &&
+        userId == request.auth.uid &&
+        resource.data.uid == request.auth.uid &&
+        isValidUserProfile(incoming()) &&
+        incoming().uid == request.auth.uid &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['username', 'displayName', 'bio', 'academicTitle', 'avatarUrl', 'avatarEmoji', 'updatedAt']);
+
+      allow delete: if false;
+    }
+
     function isValidGraph(data) {
       return data.keys().hasAll(['title', 'authorId', 'shareCode', 'isPublic', 'expressionsJson', 'viewportJson']) &&
         data.keys().hasOnly(['title', 'description', 'authorId', 'authorName', 'shareCode', 'isPublic', 'expressionsJson', 'viewportJson', 'gridMode', 'themeId', 'createdAt', 'updatedAt']) &&

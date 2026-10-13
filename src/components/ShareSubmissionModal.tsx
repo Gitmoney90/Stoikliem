@@ -27,7 +27,7 @@ export const ShareSubmissionModal: React.FC<ShareSubmissionModalProps> = ({
   onOpenAuth,
   onSubmissionSuccess,
 }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(true);
@@ -83,12 +83,16 @@ export const ShareSubmissionModal: React.FC<ShareSubmissionModalProps> = ({
       yMax: viewport.yMax,
     };
 
+    const authorAttribution = profile?.username
+      ? `@${profile.username} (${profile.displayName || 'Scholar'})`
+      : user.displayName || user.email?.split('@')[0] || 'Anonymous Scholar';
+
     const optimisticDoc: GraphDocument = {
       id: tempId,
       title: defaultTitle,
       description: description.trim(),
       authorId: user.uid,
-      authorName: user.displayName || user.email?.split('@')[0] || 'Anonymous Scholar',
+      authorName: authorAttribution,
       shareCode: generatedShareCode,
       isPublic,
       expressionsJson: JSON.stringify(minimalExpressions),
@@ -109,7 +113,7 @@ export const ShareSubmissionModal: React.FC<ShareSubmissionModalProps> = ({
         title: defaultTitle,
         description,
         authorId: user.uid,
-        authorName: user.displayName || user.email?.split('@')[0] || 'Anonymous Scholar',
+        authorName: authorAttribution,
         isPublic,
         expressions,
         viewport,
