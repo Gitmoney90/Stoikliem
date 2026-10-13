@@ -20,6 +20,8 @@ import { ExportModal } from './components/ExportModal';
 import { AuthModal } from './components/AuthModal';
 import { ShareSubmissionModal } from './components/ShareSubmissionModal';
 import { CommunityGalleryModal } from './components/CommunityGalleryModal';
+import { P2PRoomModal } from './components/P2PRoomModal';
+import { P2PEngine, P2PConnectionState } from './lib/webrtc';
 import { ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
@@ -52,6 +54,15 @@ export default function App() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isShareSubmissionOpen, setIsShareSubmissionOpen] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [isP2PRoomOpen, setIsP2PRoomOpen] = useState(false);
+
+  // WebRTC P2P Engine Instance
+  const p2pEngine = useMemo(() => new P2PEngine(), []);
+  const [p2pConnectionState, setP2PConnectionState] = useState<P2PConnectionState>('disconnected');
+
+  useEffect(() => {
+    p2pEngine.onStateChange = (st) => setP2PConnectionState(st);
+  }, [p2pEngine]);
 
   // Notification Banner when loading a shared submission
   const [loadedGraphTitle, setLoadedGraphTitle] = useState<string | null>(null);
@@ -450,9 +461,9 @@ export default function App() {
     );
   };
 
-  // Hydrate from Community / User Submission
+  // Hydrate from Community / User Submission / P2P Sync
   const handleLoadGraphSubmission = (data: {
-    title: string;
+    title?: string;
     expressions: GraphExpression[];
     viewport: Viewport;
     gridMode: GridMode;
@@ -469,7 +480,7 @@ export default function App() {
     }));
     setGridMode(data.gridMode);
     setThemeId(data.themeId);
-    setLoadedGraphTitle(data.title);
+    setLoadedGraphTitle(data.title || 'Peer Synchronized Locus');
     setTimeout(() => setLoadedGraphTitle(null), 5000);
   };
 
@@ -481,7 +492,7 @@ export default function App() {
         color: theme.textPrimary,
       }}
     >
-      {/* Top Bar Navigation (Strict 3-Zone Contract with Auth & Share Submission) */}
+      {/* Top Bar Navigation (Strict 3-Zone Contract with Auth, Share Submission, and P2P Room) */}
       <TopNav
         theme={theme}
         onOpenPresets={() => setIsPresetsOpen(true)}
@@ -492,6 +503,8 @@ export default function App() {
         onOpenShareSubmission={() => setIsShareSubmissionOpen(true)}
         onOpenGallery={() => setIsGalleryOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenP2PRoom={() => setIsP2PRoomOpen(true)}
+        isP2PConnected={p2pConnectionState === 'connected'}
       />
 
       {/* Shared Graph Loaded Toast Banner */}
@@ -656,6 +669,20 @@ export default function App() {
         onClose={() => setIsGalleryOpen(false)}
         theme={theme}
         onLoadGraphSubmission={handleLoadGraphSubmission}
+      />
+
+      {/* Zero-Backend WebRTC P2P Room Modal */}
+      <P2PRoomModal
+        isOpen={isP2PRoomOpen}
+        onClose={() => setIsP2PRoomOpen(false)}
+        theme={theme}
+        expressions={expressions}
+        viewport={viewport}
+        gridMode={gridMode}
+        themeId={themeId}
+        onLoadSyncedGraph={handleLoadGraphSubmission}
+        p2pEngine={p2pEngine}
+        connectionState={p2pConnectionState}
       />
     </div>
   );

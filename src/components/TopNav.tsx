@@ -10,6 +10,7 @@ import {
   Globe,
   User as UserIcon,
   LogIn,
+  Radio,
 } from 'lucide-react';
 
 interface TopNavProps {
@@ -22,6 +23,8 @@ interface TopNavProps {
   onOpenShareSubmission: () => void;
   onOpenGallery: () => void;
   onOpenAuth: () => void;
+  onOpenP2PRoom: () => void;
+  isP2PConnected: boolean;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -34,6 +37,8 @@ export const TopNav: React.FC<TopNavProps> = ({
   onOpenShareSubmission,
   onOpenGallery,
   onOpenAuth,
+  onOpenP2PRoom,
+  isP2PConnected,
 }) => {
   const { user } = useAuth();
 
@@ -48,7 +53,7 @@ export const TopNav: React.FC<TopNavProps> = ({
       {/* Zone 1: Single Brand Wordmark in Classical Mathematical Typography */}
       <div className="flex items-center gap-3 shrink-0">
         <a
-          href="/"
+          href="./"
           className="text-lg font-bold tracking-tight whitespace-nowrap shrink-0 transition-opacity hover:opacity-80"
           style={{
             fontFamily: '"Cinzel", "Source Serif 4", serif',
@@ -81,13 +86,17 @@ export const TopNav: React.FC<TopNavProps> = ({
           <span>Calculus Studio</span>
         </button>
 
+        {/* P2P Room Link with Live Status */}
         <button
-          onClick={onOpenTable}
+          onClick={onOpenP2PRoom}
           className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1"
-          style={{ color: theme.textSecondary }}
+          style={{ color: isP2PConnected ? '#16A34A' : theme.textSecondary }}
         >
-          <Table className="w-3.5 h-3.5" />
-          <span>Value Table</span>
+          <Radio className={`w-3.5 h-3.5 ${isP2PConnected ? 'animate-pulse text-emerald-600' : ''}`} />
+          <span>P2P Room</span>
+          {isP2PConnected && (
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block ml-0.5" />
+          )}
         </button>
 
         <button
@@ -111,6 +120,16 @@ export const TopNav: React.FC<TopNavProps> = ({
 
       {/* Zone 3: 1 Primary Action (Share Submission) + Account Affordance */}
       <div className="flex items-center gap-3 shrink-0">
+        {/* P2P Quick Button on Mobile */}
+        <button
+          onClick={onOpenP2PRoom}
+          className="md:hidden p-2 rounded-lg border text-xs font-medium hover:bg-black/5"
+          style={{ borderColor: theme.border, color: theme.textPrimary }}
+          title="P2P Room"
+        >
+          <Radio className="w-4 h-4" />
+        </button>
+
         {/* User Account / Sign In */}
         <button
           onClick={onOpenAuth}
