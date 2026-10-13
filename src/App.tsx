@@ -22,6 +22,7 @@ import { ShareSubmissionModal } from './components/ShareSubmissionModal';
 import { CommunityGalleryModal } from './components/CommunityGalleryModal';
 import { P2PRoomModal } from './components/P2PRoomModal';
 import { GraphTheoryModal } from './components/GraphTheoryModal';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { P2PEngine, P2PConnectionState } from './lib/webrtc';
 import { ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 
@@ -489,7 +490,7 @@ export default function App() {
 
   return (
     <div
-      className="flex flex-col w-screen h-screen overflow-hidden select-none"
+      className="flex flex-col w-screen h-[100dvh] overflow-hidden select-none"
       style={{
         backgroundColor: theme.bgCanvas,
         color: theme.textPrimary,
@@ -526,7 +527,7 @@ export default function App() {
           </div>
           <button
             onClick={() => setLoadedGraphTitle(null)}
-            className="text-2xs underline hover:opacity-80"
+            className="text-2xs underline hover:opacity-80 min-h-[32px] px-2"
           >
             Dismiss
           </button>
@@ -558,17 +559,18 @@ export default function App() {
           onKeypadClear={handleKeypadClear}
         />
 
-        {/* Sidebar Collapse Toggle Button */}
+        {/* Sidebar Collapse Toggle Button (Desktop only; on mobile controlled via bottom nav) */}
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           title={isSidebarOpen ? 'Hide Expressions Panel' : 'Show Expressions Panel'}
-          className="absolute left-0 top-3 z-20 p-1.5 rounded-r-lg border-y border-r shadow-md transition-transform hover:opacity-90"
+          className="hidden md:flex absolute left-0 top-3 z-20 p-2 rounded-r-lg border-y border-r shadow-md transition-transform hover:opacity-90 items-center justify-center min-h-[38px] active:scale-95"
           style={{
             transform: isSidebarOpen ? 'translateX(320px)' : 'translateX(0)',
             backgroundColor: theme.bgSidebar,
             borderColor: theme.border,
             color: theme.textSecondary,
           }}
+          aria-label={isSidebarOpen ? 'Hide Sidebar' : 'Show Sidebar'}
         >
           {isSidebarOpen ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
         </button>
@@ -604,6 +606,28 @@ export default function App() {
           />
         </main>
       </div>
+
+      {/* Dedicated Android Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        theme={theme}
+        expressionsCount={expressions.length}
+        isSidebarOpen={isSidebarOpen}
+        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        isAnalysisOpen={isAnalysisOpen}
+        onToggleAnalysis={() => setIsAnalysisOpen(!isAnalysisOpen)}
+        onOpenPresets={() => setIsPresetsOpen(true)}
+        onOpenGraphTheory={() => setIsGraphTheoryOpen(true)}
+        onOpenTable={() => setIsTableOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenShareSubmission={() => setIsShareSubmissionOpen(true)}
+        onOpenGallery={() => setIsGalleryOpen(true)}
+        onOpenP2PRoom={() => setIsP2PRoomOpen(true)}
+        isP2PConnected={p2pConnectionState === 'connected'}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenExport={() => setIsExportOpen(true)}
+        isKeypadOpen={isKeypadOpen}
+        onToggleKeypad={() => setIsKeypadOpen(!isKeypadOpen)}
+      />
 
       {/* Classical Curve Presets Gallery Modal */}
       <PresetsModal

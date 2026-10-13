@@ -34,9 +34,9 @@ export const PresetsModal: React.FC<PresetsModalProps> = ({
       : CLASSIC_PRESETS.filter((p) => p.category === selectedCategory);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4">
       <div
-        className="w-full max-w-3xl rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in fade-in zoom-in-95 duration-150"
+        className="w-full max-w-3xl rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[90dvh] sm:max-h-[88vh] animate-in fade-in zoom-in-95 duration-150"
         style={{
           backgroundColor: theme.bgCard,
           borderColor: theme.border,
@@ -44,17 +44,17 @@ export const PresetsModal: React.FC<PresetsModalProps> = ({
       >
         {/* Header */}
         <div
-          className="px-6 py-4 border-b flex items-center justify-between shrink-0"
+          className="px-4 sm:px-6 py-3.5 sm:py-4 border-b flex items-center justify-between shrink-0 min-h-[52px]"
           style={{
             backgroundColor: theme.bgSidebar,
             borderColor: theme.border,
           }}
         >
-          <div className="flex items-center gap-3">
-            <BookOpen className="w-5 h-5" style={{ color: theme.accent }} />
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <BookOpen className="w-5 h-5 shrink-0" style={{ color: theme.accent }} />
             <div>
               <h2
-                className="text-base font-bold tracking-tight"
+                className="text-sm sm:text-base font-bold tracking-tight"
                 style={{
                   fontFamily: '"Cinzel", "Source Serif 4", serif',
                   color: theme.textPrimary,
@@ -62,15 +62,16 @@ export const PresetsModal: React.FC<PresetsModalProps> = ({
               >
                 Classical Mathematical Curves
               </h2>
-              <p className="text-xs" style={{ color: theme.textSecondary }}>
+              <p className="text-2xs sm:text-xs line-clamp-1" style={{ color: theme.textSecondary }}>
                 Historical treatises & renowned geometrical loci from Archimedes to modern algebra
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
             style={{ color: theme.textSecondary }}
+            aria-label="Close presets"
           >
             <X className="w-5 h-5" />
           </button>

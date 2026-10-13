@@ -314,18 +314,18 @@ export const GraphTheoryModal: React.FC<GraphTheoryModalProps> = ({
       >
         {/* Header */}
         <div
-          className="px-6 py-4 border-b flex items-center justify-between shrink-0"
+          className="px-3 sm:px-6 py-3 sm:py-4 border-b flex flex-wrap items-center justify-between gap-2 shrink-0 min-h-[52px]"
           style={{
             backgroundColor: theme.bgSidebar,
             borderColor: theme.border,
           }}
         >
-          <div className="flex items-center gap-3">
-            <Network className="w-5 h-5" style={{ color: theme.accent }} />
-            <div>
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <Network className="w-5 h-5 shrink-0" style={{ color: theme.accent }} />
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h2
-                  className="text-base font-bold tracking-tight"
+                  className="text-sm sm:text-base font-bold tracking-tight truncate"
                   style={{
                     fontFamily: '"Cinzel", "Source Serif 4", serif',
                     color: theme.textPrimary,
@@ -333,21 +333,21 @@ export const GraphTheoryModal: React.FC<GraphTheoryModalProps> = ({
                 >
                   Graph Theory Explorer
                 </h2>
-                <span className="text-2xs font-mono px-2 py-0.5 rounded bg-black/5 dark:bg-white/5 text-amber-700">
+                <span className="text-3xs sm:text-2xs font-mono px-1.5 sm:px-2 py-0.5 rounded bg-black/5 dark:bg-white/5 text-amber-700">
                   G = (V, E)
                 </span>
               </div>
-              <p className="text-xs" style={{ color: theme.textSecondary }}>
+              <p className="text-2xs sm:text-xs line-clamp-1 hidden xs:block" style={{ color: theme.textSecondary }}>
                 The mathematical study of networks, topological paths, and structural connectivity
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <div className="flex items-center rounded-lg border p-0.5" style={{ borderColor: theme.border }}>
               <button
                 onClick={() => setViewMode('sandbox')}
-                className={`px-3 py-1 rounded text-2xs font-semibold transition-colors ${
+                className={`px-2.5 sm:px-3 py-1 sm:py-1 rounded text-2xs font-semibold transition-colors min-h-[34px] flex items-center justify-center ${
                   viewMode === 'sandbox' ? 'shadow-xs font-bold' : 'opacity-70 hover:opacity-100'
                 }`}
                 style={{
@@ -355,11 +355,11 @@ export const GraphTheoryModal: React.FC<GraphTheoryModalProps> = ({
                   color: viewMode === 'sandbox' ? '#FFFFFF' : theme.textPrimary,
                 }}
               >
-                Interactive Sandbox
+                Sandbox
               </button>
               <button
                 onClick={() => setViewMode('treatise')}
-                className={`px-3 py-1 rounded text-2xs font-semibold transition-colors ${
+                className={`px-2.5 sm:px-3 py-1 sm:py-1 rounded text-2xs font-semibold transition-colors min-h-[34px] flex items-center justify-center ${
                   viewMode === 'treatise' ? 'shadow-xs font-bold' : 'opacity-70 hover:opacity-100'
                 }`}
                 style={{
@@ -367,14 +367,15 @@ export const GraphTheoryModal: React.FC<GraphTheoryModalProps> = ({
                   color: viewMode === 'treatise' ? '#FFFFFF' : theme.textPrimary,
                 }}
               >
-                Foundational Treatise
+                Treatise
               </button>
             </div>
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
               style={{ color: theme.textSecondary }}
+              aria-label="Close Graph Theory Modal"
             >
               <X className="w-5 h-5" />
             </button>

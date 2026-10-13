@@ -51,12 +51,12 @@ export const VirtualKeypad: React.FC<VirtualKeypadProps> = ({
       }}
     >
       {/* Header and Category Tabs */}
-      <div className="flex items-center justify-between gap-1">
-        <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between gap-1 pb-1">
+        <div className="flex items-center gap-1 overflow-x-auto">
           <button
             onClick={() => setActiveTab('main')}
-            className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
-              activeTab === 'main' ? 'shadow-xs font-semibold' : 'opacity-70 hover:opacity-100'
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors min-h-[36px] flex items-center justify-center ${
+              activeTab === 'main' ? 'shadow-xs font-bold' : 'opacity-70 hover:opacity-100'
             }`}
             style={{
               backgroundColor: activeTab === 'main' ? theme.bgCard : 'transparent',
@@ -67,8 +67,8 @@ export const VirtualKeypad: React.FC<VirtualKeypadProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('functions')}
-            className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
-              activeTab === 'functions' ? 'shadow-xs font-semibold' : 'opacity-70 hover:opacity-100'
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors min-h-[36px] flex items-center justify-center ${
+              activeTab === 'functions' ? 'shadow-xs font-bold' : 'opacity-70 hover:opacity-100'
             }`}
             style={{
               backgroundColor: activeTab === 'functions' ? theme.bgCard : 'transparent',
@@ -79,8 +79,8 @@ export const VirtualKeypad: React.FC<VirtualKeypadProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('calculus')}
-            className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
-              activeTab === 'calculus' ? 'shadow-xs font-semibold' : 'opacity-70 hover:opacity-100'
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors min-h-[36px] flex items-center justify-center ${
+              activeTab === 'calculus' ? 'shadow-xs font-bold' : 'opacity-70 hover:opacity-100'
             }`}
             style={{
               backgroundColor: activeTab === 'calculus' ? theme.bgCard : 'transparent',
@@ -91,8 +91,8 @@ export const VirtualKeypad: React.FC<VirtualKeypadProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('symbols')}
-            className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
-              activeTab === 'symbols' ? 'shadow-xs font-semibold' : 'opacity-70 hover:opacity-100'
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors min-h-[36px] flex items-center justify-center ${
+              activeTab === 'symbols' ? 'shadow-xs font-bold' : 'opacity-70 hover:opacity-100'
             }`}
             style={{
               backgroundColor: activeTab === 'symbols' ? theme.bgCard : 'transparent',
@@ -106,8 +106,9 @@ export const VirtualKeypad: React.FC<VirtualKeypadProps> = ({
         <button
           onClick={onToggle}
           title="Minimize Keypad"
-          className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors opacity-70 hover:opacity-100"
+          className="min-w-[36px] min-h-[36px] p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors opacity-70 hover:opacity-100 flex items-center justify-center"
           style={{ color: theme.textSecondary }}
+          aria-label="Minimize Keypad"
         >
           <ChevronDown className="w-4 h-4" />
         </button>
@@ -231,7 +232,7 @@ const KeyBtn: React.FC<{
     type="button"
     onClick={action}
     title={title}
-    className="h-8 flex items-center justify-center rounded border transition-all active:scale-95 shadow-2xs hover:opacity-90"
+    className="h-10 sm:h-8 min-h-[40px] sm:min-h-[32px] flex items-center justify-center rounded-lg sm:rounded border transition-all active:scale-95 shadow-2xs hover:opacity-90 text-xs sm:text-xs font-semibold sm:font-normal"
     style={{
       backgroundColor: theme.bgCard,
       borderColor: theme.border,

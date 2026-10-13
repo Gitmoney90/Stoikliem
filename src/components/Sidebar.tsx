@@ -3,7 +3,7 @@ import { GraphExpression, ThemeConfig } from '../types/graph';
 import { ParsedEquationInfo } from '../math/evaluator';
 import { ExpressionItem } from './ExpressionItem';
 import { VirtualKeypad } from './VirtualKeypad';
-import { Plus, ChevronLeft, ChevronRight, Sliders, Hash } from 'lucide-react';
+import { Plus, Sliders, Hash, X } from 'lucide-react';
 
 interface SidebarProps {
   expressions: GraphExpression[];
@@ -49,54 +49,80 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onKeypadClear,
 }) => {
   return (
-    <aside
-      className={`relative flex flex-col h-full border-r transition-all duration-300 z-10 shrink-0 ${
-        isOpen ? 'w-80 md:w-96' : 'w-0 overflow-hidden border-r-0'
-      }`}
-      style={{
-        backgroundColor: theme.bgSidebar,
-        borderColor: theme.border,
-      }}
-    >
-      {/* Sidebar Header Toolbar */}
-      <div
-        className="p-3 border-b flex items-center justify-between shrink-0"
-        style={{ borderColor: theme.border }}
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-30 md:hidden animate-in fade-in duration-200"
+          onClick={onToggleSidebar}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed md:relative inset-y-0 left-0 z-40 md:z-10 w-[88vw] max-w-[360px] md:w-80 lg:w-96 h-full border-r shadow-2xl md:shadow-none flex flex-col transition-all duration-300 shrink-0 ${
+          isOpen
+            ? 'translate-x-0 md:w-80 lg:w-96'
+            : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden md:border-r-0 pointer-events-none md:pointer-events-auto'
+        }`}
+        style={{
+          backgroundColor: theme.bgSidebar,
+          borderColor: theme.border,
+        }}
       >
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => onAddExpression('function')}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg shadow-xs transition-transform active:scale-95 hover:opacity-90"
-            style={{
-              backgroundColor: theme.accent,
-              color: '#FFFFFF',
-            }}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Item</span>
-          </button>
-
-          <button
-            onClick={() => onAddExpression('slider')}
-            title="Add Parameter Slider"
-            className="px-2.5 py-1.5 text-xs font-medium rounded-lg border hover:bg-black/5 dark:hover:bg-white/5 transition-colors flex items-center gap-1"
-            style={{
-              borderColor: theme.border,
-              color: theme.textSecondary,
-            }}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Slider</span>
-          </button>
-        </div>
-
-        <span
-          className="text-xs font-mono tabular-nums px-2 py-0.5 rounded"
-          style={{ color: theme.textMuted }}
+        {/* Sidebar Header Toolbar */}
+        <div
+          className="p-3 border-b flex items-center justify-between shrink-0 min-h-[52px]"
+          style={{ borderColor: theme.border }}
         >
-          {expressions.length} {expressions.length === 1 ? 'item' : 'items'}
-        </span>
-      </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onAddExpression('function')}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg shadow-xs transition-transform active:scale-95 hover:opacity-90 min-h-[40px]"
+              style={{
+                backgroundColor: theme.accent,
+                color: '#FFFFFF',
+              }}
+              aria-label="Add Equation Item"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Item</span>
+            </button>
+
+            <button
+              onClick={() => onAddExpression('slider')}
+              title="Add Parameter Slider"
+              className="px-3 py-2 text-xs font-medium rounded-lg border hover:bg-black/5 dark:hover:bg-white/5 transition-colors flex items-center gap-1.5 min-h-[40px] active:scale-95"
+              style={{
+                borderColor: theme.border,
+                color: theme.textSecondary,
+              }}
+              aria-label="Add Slider"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Slider</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span
+              className="text-xs font-mono tabular-nums px-2 py-0.5 rounded"
+              style={{ color: theme.textMuted }}
+            >
+              {expressions.length} {expressions.length === 1 ? 'item' : 'items'}
+            </span>
+
+            {/* Mobile Close Button */}
+            <button
+              onClick={onToggleSidebar}
+              className="md:hidden min-w-[40px] min-h-[40px] flex items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              style={{ color: theme.textSecondary }}
+              aria-label="Close Curves Drawer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
 
       {/* Expression Cards List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
@@ -145,5 +171,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         onClear={onKeypadClear}
       />
     </aside>
+    </>
   );
 };

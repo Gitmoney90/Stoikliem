@@ -47,17 +47,17 @@ export const TopNav: React.FC<TopNavProps> = ({
 
   return (
     <header
-      className="flex items-center justify-between gap-8 px-6 py-3.5 border-b z-20 shrink-0 select-none transition-colors"
+      className="flex items-center justify-between gap-3 sm:gap-8 px-3 sm:px-6 py-2 sm:py-3 border-b z-20 shrink-0 select-none transition-colors min-h-[50px] sm:min-h-[56px]"
       style={{
         backgroundColor: theme.bgSidebar,
         borderColor: theme.border,
       }}
     >
       {/* Zone 1: Single Brand Wordmark in Classical Mathematical Typography */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
         <a
           href="./"
-          className="text-lg font-bold tracking-tight whitespace-nowrap shrink-0 transition-opacity hover:opacity-80"
+          className="text-base sm:text-lg font-bold tracking-tight whitespace-nowrap truncate shrink-0 transition-opacity hover:opacity-80"
           style={{
             fontFamily: '"Cinzel", "Source Serif 4", serif',
             color: theme.textPrimary,
@@ -67,8 +67,8 @@ export const TopNav: React.FC<TopNavProps> = ({
         </a>
       </div>
 
-      {/* Zone 2: 4-5 Concise Single-Line Navigation Links */}
-      <nav className="hidden md:flex items-center gap-6 text-xs font-medium">
+      {/* Zone 2: Desktop 4-5 Concise Single-Line Navigation Links */}
+      <nav className="hidden md:flex items-center gap-5 lg:gap-6 text-xs font-medium">
         <button
           onClick={onOpenPresets}
           className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1"
@@ -130,28 +130,8 @@ export const TopNav: React.FC<TopNavProps> = ({
         </button>
       </nav>
 
-      {/* Zone 3: 1 Primary Action (Share Submission) + Account Affordance */}
-      <div className="flex items-center gap-3 shrink-0">
-        {/* Graph Theory Quick Button on Mobile */}
-        <button
-          onClick={onOpenGraphTheory}
-          className="md:hidden p-2 rounded-lg border text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5"
-          style={{ borderColor: theme.border, color: theme.textPrimary }}
-          title="Graph Theory Explorer"
-        >
-          <Network className="w-4 h-4" />
-        </button>
-
-        {/* P2P Quick Button on Mobile */}
-        <button
-          onClick={onOpenP2PRoom}
-          className="md:hidden p-2 rounded-lg border text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5"
-          style={{ borderColor: theme.border, color: isP2PConnected ? '#16A34A' : theme.textPrimary }}
-          title="P2P Room"
-        >
-          <Radio className="w-4 h-4" />
-        </button>
-
+      {/* Zone 3: Actions & Account Affordance */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* User Account / Profile Dossier */}
         <button
           onClick={onOpenAuth}
@@ -160,11 +140,12 @@ export const TopNav: React.FC<TopNavProps> = ({
               ? `Profile: @${profile?.username || user.displayName || user.email} (${profile?.academicTitle || 'Scholar'})`
               : 'Sign In'
           }
-          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors whitespace-nowrap"
+          className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg border text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors whitespace-nowrap min-h-[40px] sm:min-h-[38px] active:scale-95"
           style={{
             borderColor: theme.border,
             color: theme.textPrimary,
           }}
+          aria-label={user ? 'User Profile' : 'Sign In'}
         >
           {user ? (
             <>
@@ -172,21 +153,21 @@ export const TopNav: React.FC<TopNavProps> = ({
                 <img
                   src={profile?.avatarUrl || user.photoURL || ''}
                   alt={profile?.displayName || user.displayName || 'User'}
-                  className="w-4 h-4 rounded-full object-cover"
+                  className="w-5 h-5 sm:w-4 sm:h-4 rounded-full object-cover"
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <span className="text-xs leading-none">
+                <span className="text-sm sm:text-xs leading-none">
                   {profile?.avatarEmoji || '📐'}
                 </span>
               )}
-              <span className="hidden sm:inline font-mono truncate max-w-[120px] font-semibold">
+              <span className="hidden sm:inline font-mono truncate max-w-[110px] font-semibold">
                 @{profile?.username || user.displayName?.split(' ')[0] || user.email?.split('@')[0]}
               </span>
             </>
           ) : (
             <>
-              <LogIn className="w-3.5 h-3.5" />
+              <LogIn className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
               <span className="hidden sm:inline">Sign In</span>
             </>
           )}
@@ -195,14 +176,16 @@ export const TopNav: React.FC<TopNavProps> = ({
         {/* Primary CTA: Share Submission */}
         <button
           onClick={onOpenShareSubmission}
-          className="px-4 py-2 text-xs font-semibold rounded-lg shadow-sm transition-all whitespace-nowrap shrink-0 flex items-center gap-2 hover:opacity-90 active:scale-95"
+          className="px-3 sm:px-4 py-2 text-xs font-semibold rounded-lg shadow-sm transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 sm:gap-2 hover:opacity-90 active:scale-95 min-h-[40px] sm:min-h-[38px]"
           style={{
             backgroundColor: theme.textPrimary,
             color: theme.bgCanvas,
           }}
+          aria-label="Share Submission"
         >
-          <Share2 className="w-3.5 h-3.5" />
-          <span>Share Submission</span>
+          <Share2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+          <span className="hidden xs:inline">Share</span>
+          <span className="hidden sm:inline">Submission</span>
         </button>
       </div>
     </header>

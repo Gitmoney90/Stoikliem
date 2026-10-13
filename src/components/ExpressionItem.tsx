@@ -77,8 +77,8 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
       }}
     >
       {/* Top Line: Color, Visibility, Input, Menu */}
-      <div className="flex items-center gap-2.5">
-        {/* Color Dot Button */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5">
+        {/* Color Dot Button with Thumb-Friendly Touch Area */}
         <div className="relative">
           <button
             type="button"
@@ -87,13 +87,18 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
               setShowColorPicker(!showColorPicker);
             }}
             title="Change curve color"
-            className="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110 shrink-0"
-            style={{ backgroundColor: expression.color }}
-          />
+            className="min-w-[40px] min-h-[40px] p-2 flex items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors shrink-0"
+            aria-label="Change curve color"
+          >
+            <span
+              className="w-5 h-5 rounded-full border border-black/10 transition-transform active:scale-95 inline-block shadow-2xs"
+              style={{ backgroundColor: expression.color }}
+            />
+          </button>
 
           {showColorPicker && (
             <div
-              className="absolute left-0 top-7 p-2 rounded-lg border shadow-lg z-30 flex gap-1.5 flex-wrap w-36"
+              className="absolute left-0 top-11 p-2.5 rounded-xl border shadow-xl z-30 flex gap-2 flex-wrap w-44"
               style={{
                 backgroundColor: theme.bgCard,
                 borderColor: theme.border,
@@ -108,8 +113,9 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
                     onChangeColor(col);
                     setShowColorPicker(false);
                   }}
-                  className="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-115"
+                  className="w-7 h-7 sm:w-6 sm:h-6 rounded-full border border-black/10 transition-transform active:scale-90 hover:scale-110 shadow-xs"
                   style={{ backgroundColor: col }}
+                  aria-label={`Color ${col}`}
                 />
               ))}
             </div>
@@ -124,10 +130,11 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
             onToggleVisible();
           }}
           title={expression.visible ? 'Hide curve' : 'Show curve'}
-          className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors shrink-0"
+          className="min-w-[40px] min-h-[40px] p-2 flex items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors shrink-0"
           style={{ color: expression.visible ? theme.textPrimary : theme.textMuted }}
+          aria-label={expression.visible ? 'Hide curve' : 'Show curve'}
         >
-          {expression.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4 opacity-50" />}
+          {expression.visible ? <Eye className="w-4 h-4 sm:w-4 sm:h-4" /> : <EyeOff className="w-4 h-4 opacity-50" />}
         </button>
 
         {/* Mathematical Equation Input */}
@@ -137,8 +144,8 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
             value={expression.rawText}
             onChange={(e) => onChangeText(e.target.value)}
             onFocus={onFocusInput}
-            placeholder="e.g. y = sin(x), x^2+y^2=25, (cos(t), sin(t)), r = 2cos(4theta)"
-            className="w-full px-2 py-1 text-sm bg-transparent border-0 outline-none font-mono focus:ring-0"
+            placeholder="e.g. y = sin(x), x^2+y^2=25"
+            className="w-full px-2 py-1.5 text-base sm:text-sm bg-transparent border-0 outline-none font-mono focus:ring-0 min-h-[40px]"
             style={{
               color: theme.textPrimary,
               fontFamily: '"Source Serif 4", "JetBrains Mono", serif',
@@ -154,15 +161,16 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
               e.stopPropagation();
               setShowMenu(!showMenu);
             }}
-            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+            className="min-w-[40px] min-h-[40px] p-2 flex items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors shrink-0"
             style={{ color: theme.textSecondary }}
+            aria-label="Equation Actions"
           >
             <MoreVertical className="w-4 h-4" />
           </button>
 
           {showMenu && (
             <div
-              className="absolute right-0 top-7 w-40 rounded-lg border shadow-lg z-30 py-1 text-xs"
+              className="absolute right-0 top-11 w-44 rounded-xl border shadow-xl z-30 py-1.5 text-xs"
               style={{
                 backgroundColor: theme.bgCard,
                 borderColor: theme.border,
@@ -175,10 +183,10 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
                   onDuplicate();
                   setShowMenu(false);
                 }}
-                className="w-full px-3 py-1.5 text-left flex items-center gap-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors min-h-[40px]"
                 style={{ color: theme.textPrimary }}
               >
-                <Copy className="w-3.5 h-3.5" />
+                <Copy className="w-4 h-4" />
                 <span>Duplicate</span>
               </button>
 
@@ -189,10 +197,10 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
                     setShowCalculusSettings(!showCalculusSettings);
                     setShowMenu(false);
                   }}
-                  className="w-full px-3 py-1.5 text-left flex items-center gap-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors min-h-[40px]"
                   style={{ color: theme.textPrimary }}
                 >
-                  <TrendingUp className="w-3.5 h-3.5" />
+                  <TrendingUp className="w-4 h-4" />
                   <span>Calculus Overlays</span>
                 </button>
               )}
@@ -203,9 +211,9 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
                   onDelete();
                   setShowMenu(false);
                 }}
-                className="w-full px-3 py-1.5 text-left flex items-center gap-2 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors min-h-[40px]"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-4 h-4" />
                 <span>Delete</span>
               </button>
             </div>

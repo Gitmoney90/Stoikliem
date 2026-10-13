@@ -76,7 +76,7 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
 
   return (
     <div
-      className="absolute right-4 top-16 w-84 md:w-96 rounded-2xl border shadow-2xl z-20 overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in slide-in-from-top-2 duration-200"
+      className="fixed sm:absolute inset-x-2 sm:inset-x-auto sm:right-4 top-14 sm:top-16 w-auto sm:w-96 rounded-2xl border shadow-2xl z-20 overflow-hidden flex flex-col max-h-[72dvh] sm:max-h-[85vh] animate-in fade-in slide-in-from-top-2 duration-200"
       style={{
         backgroundColor: theme.bgCard,
         borderColor: theme.border,
@@ -84,7 +84,7 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
     >
       {/* Header */}
       <div
-        className="px-4 py-3 border-b flex items-center justify-between shrink-0"
+        className="px-4 py-3 border-b flex items-center justify-between shrink-0 min-h-[48px]"
         style={{
           backgroundColor: theme.bgSidebar,
           borderColor: theme.border,
@@ -104,8 +104,9 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
         </div>
         <button
           onClick={onClose}
-          className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+          className="min-w-[38px] min-h-[38px] flex items-center justify-center p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
           style={{ color: theme.textSecondary }}
+          aria-label="Close Calculus Studio"
         >
           <X className="w-4 h-4" />
         </button>

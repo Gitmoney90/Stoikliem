@@ -62,9 +62,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4">
       <div
-        className="w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150"
+        className="w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[88dvh] sm:max-h-[85vh] animate-in fade-in zoom-in-95 duration-150"
         style={{
           backgroundColor: theme.bgCard,
           borderColor: theme.border,
@@ -72,28 +72,29 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       >
         {/* Header */}
         <div
-          className="px-6 py-4 border-b flex items-center justify-between shrink-0"
+          className="px-4 sm:px-6 py-3.5 sm:py-4 border-b flex items-center justify-between shrink-0 min-h-[52px]"
           style={{
             backgroundColor: theme.bgSidebar,
             borderColor: theme.border,
           }}
         >
           <div className="flex items-center gap-2.5">
-            <Download className="w-5 h-5" style={{ color: theme.accent }} />
+            <Download className="w-5 h-5 shrink-0" style={{ color: theme.accent }} />
             <h2
-              className="text-base font-bold tracking-tight"
+              className="text-sm sm:text-base font-bold tracking-tight truncate"
               style={{
                 fontFamily: '"Cinzel", "Source Serif 4", serif',
                 color: theme.textPrimary,
               }}
             >
-              Export & Share Mathematical Figure
+              Export & Share Figure
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
             style={{ color: theme.textSecondary }}
+            aria-label="Close Export"
           >
             <X className="w-5 h-5" />
           </button>

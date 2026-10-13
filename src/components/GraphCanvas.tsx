@@ -60,6 +60,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     { x: number; y: number; label: string; color: string }[]
   >([]);
 
+  // Multi-touch tracking for Android pinch-to-zoom and gestures
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const initialPinchDistRef = useRef<number | null>(null);
+  const initialPinchViewportRef = useRef<Viewport | null>(null);
+
   // Coordinate transforms
   const worldToScreen = useCallback(
     (x: number, y: number, vp: Viewport) => {
@@ -338,9 +343,23 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
   // Mouse / Pointer Event Handlers for Panning, Zooming & Curve Tracing
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    setIsDragging(true);
-    setDragStart({ x: e.clientX, y: e.clientY });
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore if setPointerCapture fails
+    }
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (activePointersRef.current.size === 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+    } else if (activePointersRef.current.size === 2) {
+      // 2 fingers down: initiate pinch zoom
+      const pts = Array.from(activePointersRef.current.values());
+      initialPinchDistRef.current = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      initialPinchViewportRef.current = { ...viewport };
+      setIsDragging(true);
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -351,7 +370,43 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     const world = screenToWorld(sx, sy, viewport);
     setHoverCoord({ x: world.x, y: world.y, sx, sy });
 
-    if (isDragging && dragStart) {
+    if (activePointersRef.current.has(e.pointerId)) {
+      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    // Android / Touch multi-pointer pinch to zoom
+    if (activePointersRef.current.size === 2 && initialPinchDistRef.current && initialPinchViewportRef.current) {
+      const pts = Array.from(activePointersRef.current.values());
+      const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+
+      if (currentDist > 5 && initialPinchDistRef.current > 5) {
+        const scale = initialPinchDistRef.current / currentDist;
+        const midScreenX = (pts[0].x + pts[1].x) / 2 - rect.left;
+        const midScreenY = (pts[0].y + pts[1].y) / 2 - rect.top;
+        const initVp = initialPinchViewportRef.current;
+        const focusWorld = screenToWorld(midScreenX, midScreenY, initVp);
+
+        const currentSpanX = initVp.xMax - initVp.xMin;
+        const currentSpanY = initVp.yMax - initVp.yMin;
+        const newSpanX = currentSpanX * scale;
+        const newSpanY = currentSpanY * scale;
+
+        const ratioX = (focusWorld.x - initVp.xMin) / currentSpanX;
+        const ratioY = (focusWorld.y - initVp.yMin) / currentSpanY;
+
+        onViewportChange({
+          ...initVp,
+          xMin: focusWorld.x - ratioX * newSpanX,
+          xMax: focusWorld.x + (1 - ratioX) * newSpanX,
+          yMin: focusWorld.y - ratioY * newSpanY,
+          yMax: focusWorld.y + (1 - ratioY) * newSpanY,
+        });
+        return;
+      }
+    }
+
+    // Single touch or mouse dragging
+    if (isDragging && dragStart && activePointersRef.current.size <= 1) {
       const dxScreen = e.clientX - dragStart.x;
       const dyScreen = e.clientY - dragStart.y;
 
@@ -407,9 +462,23 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    setIsDragging(false);
-    setDragStart(null);
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // Ignore
+    }
+    activePointersRef.current.delete(e.pointerId);
+    if (activePointersRef.current.size < 2) {
+      initialPinchDistRef.current = null;
+      initialPinchViewportRef.current = null;
+    }
+    if (activePointersRef.current.size === 0) {
+      setIsDragging(false);
+      setDragStart(null);
+    } else if (activePointersRef.current.size === 1) {
+      const [remaining] = Array.from(activePointersRef.current.values());
+      setDragStart(remaining);
+    }
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
@@ -496,47 +565,47 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       />
 
       {/* Floating Canvas Navigation Toolbar */}
-      <div className="absolute right-5 bottom-6 flex flex-col gap-1.5 p-1 bg-stone-900/80 backdrop-blur-md rounded-xl border border-stone-700/60 shadow-lg z-10">
+      <div className="absolute right-3 sm:right-5 bottom-20 md:bottom-6 flex flex-col gap-1.5 p-1 bg-stone-900/85 backdrop-blur-md rounded-xl border border-stone-700/60 shadow-xl z-20 select-none">
         <button
           onClick={() => handleZoom('in')}
           title="Zoom In (+)"
-          className="p-2 text-stone-300 hover:text-white hover:bg-stone-800 rounded-lg transition-colors"
+          className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] sm:min-w-[36px] min-h-[44px] sm:min-h-[36px] flex items-center justify-center p-2.5 sm:p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
           aria-label="Zoom In"
         >
-          <ZoomIn className="w-4 h-4" />
+          <ZoomIn className="w-5 h-5 sm:w-4 sm:h-4" />
         </button>
         <button
           onClick={() => handleZoom('out')}
           title="Zoom Out (-)"
-          className="p-2 text-stone-300 hover:text-white hover:bg-stone-800 rounded-lg transition-colors"
+          className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] sm:min-w-[36px] min-h-[44px] sm:min-h-[36px] flex items-center justify-center p-2.5 sm:p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
           aria-label="Zoom Out"
         >
-          <ZoomOut className="w-4 h-4" />
+          <ZoomOut className="w-5 h-5 sm:w-4 sm:h-4" />
         </button>
         <button
           onClick={handleSquareAspect}
           title="Lock Square Aspect Ratio (1:1)"
-          className="p-2 text-stone-300 hover:text-white hover:bg-stone-800 rounded-lg transition-colors"
+          className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] sm:min-w-[36px] min-h-[44px] sm:min-h-[36px] flex items-center justify-center p-2.5 sm:p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
           aria-label="Square Aspect"
         >
-          <Maximize2 className="w-4 h-4" />
+          <Maximize2 className="w-5 h-5 sm:w-4 sm:h-4" />
         </button>
         <button
           onClick={handleResetViewport}
           title="Reset Standard Window"
-          className="p-2 text-stone-300 hover:text-white hover:bg-stone-800 rounded-lg transition-colors"
+          className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] sm:min-w-[36px] min-h-[44px] sm:min-h-[36px] flex items-center justify-center p-2.5 sm:p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
           aria-label="Reset View"
         >
-          <RotateCcw className="w-4 h-4" />
+          <RotateCcw className="w-5 h-5 sm:w-4 sm:h-4" />
         </button>
       </div>
 
       {/* Real-time Cursor Coordinates Readout */}
       {hoverCoord && (
-        <div className="absolute left-4 bottom-4 pointer-events-none px-2.5 py-1 bg-stone-900/85 backdrop-blur-md rounded-md border border-stone-700/60 shadow-sm text-xs font-mono tabular-nums text-stone-300 flex items-center gap-3">
-          <span>X: {hoverCoord.x.toFixed(4)}</span>
+        <div className="absolute left-3 sm:left-4 bottom-20 md:bottom-4 pointer-events-none px-2.5 py-1 bg-stone-900/85 backdrop-blur-md rounded-md border border-stone-700/60 shadow-sm text-2xs sm:text-xs font-mono tabular-nums text-stone-300 flex items-center gap-2 sm:gap-3 z-10">
+          <span>X: {hoverCoord.x.toFixed(3)}</span>
           <span className="text-stone-600">|</span>
-          <span>Y: {hoverCoord.y.toFixed(4)}</span>
+          <span>Y: {hoverCoord.y.toFixed(3)}</span>
         </div>
       )}
     </div>
