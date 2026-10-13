@@ -5,7 +5,7 @@ import {
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
-import { auth, googleProvider } from '../lib/firebase';
+import { auth, provider } from '../lib/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -35,7 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async (): Promise<User | null> => {
     try {
-      const res = await signInWithPopup(auth, googleProvider);
+      const res = await signInWithPopup(auth, provider);
       return res.user;
     } catch (err: any) {
       console.error('Google Sign-In failed:', err);

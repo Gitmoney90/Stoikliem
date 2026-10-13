@@ -1,13 +1,28 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-// CRITICAL: Must pass firestoreDatabaseId
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const firebaseConfig = {
+  apiKey: "AIzaSyCK5ZUzUAtBXZ0PPtupBdg9bq8ThhJgVN4",
+  authDomain: "gen-lang-client-0910478688.firebaseapp.com",
+  projectId: "gen-lang-client-0910478688",
+  storageBucket: "gen-lang-client-0910478688.firebasestorage.app",
+  messagingSenderId: "215776242901",
+  appId: "1:215776242901:web:9fcb81cb46bd45029f065c",
+  measurementId: "G-DR6DSZ5F12"
+};
+
+// 1. Ensure initializeApp(firebaseConfig) uses these exact values
+export const app = initializeApp(firebaseConfig);
+
+// 2. Initialize and export Firebase Auth (getAuth(app)) and GoogleAuthProvider
 export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
+export const provider = new GoogleAuthProvider();
+export const googleProvider = provider;
+export { GoogleAuthProvider };
+
+// Initialize Firestore with designated database ID
+export const db = getFirestore(app, "ai-studio-principiagraphic-95936d98-53a4-4c26-bd25-f9b54f055fee");
 
 export enum OperationType {
   CREATE = 'create',
@@ -49,9 +64,9 @@ export function handleFirestoreError(
       isAnonymous: auth.currentUser?.isAnonymous,
       tenantId: auth.currentUser?.tenantId,
       providerInfo:
-        auth.currentUser?.providerData?.map((provider) => ({
-          providerId: provider.providerId,
-          email: provider.email,
+        auth.currentUser?.providerData?.map((p) => ({
+          providerId: p.providerId,
+          email: p.email,
         })) || [],
     },
     operationType,

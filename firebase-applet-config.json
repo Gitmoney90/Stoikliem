@@ -1,12 +1,10 @@
 {
-  "projectId": "rock-champion-6xtlg",
-  "appId": "1:62803373523:web:bfee1dbe4c19d3b52c9326",
-  "apiKey": "AIzaSyDJYCAal85EKr2vD3s85NTu0Hy3qNJ-BCo",
-  "authDomain": "rock-champion-6xtlg.firebaseapp.com",
+  "projectId": "gen-lang-client-0910478688",
+  "appId": "1:215776242901:web:9fcb81cb46bd45029f065c",
+  "apiKey": "AIzaSyCK5ZUzUAtBXZ0PPtupBdg9bq8ThhJgVN4",
+  "authDomain": "gen-lang-client-0910478688.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-principiagraphic-95936d98-53a4-4c26-bd25-f9b54f055fee",
-  "storageBucket": "rock-champion-6xtlg.firebasestorage.app",
-  "messagingSenderId": "62803373523",
-  "measurementId": "",
-  "oAuthClientId": "62803373523-ado3e30pt4u92jc36h3eak8adp130sd5.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+  "storageBucket": "gen-lang-client-0910478688.firebasestorage.app",
+  "messagingSenderId": "215776242901",
+  "measurementId": "G-DR6DSZ5F12"
 }
