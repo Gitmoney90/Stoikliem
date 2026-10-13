@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Viewport,
   GraphExpression,
@@ -7,7 +7,8 @@ import {
 } from './types/graph';
 import { THEMES } from './math/themes';
 import { parseEquation, ParsedEquationInfo, EvalScope } from './math/evaluator';
-import { CurvePreset, CLASSIC_PRESETS } from './math/presets';
+import { CurvePreset } from './math/presets';
+import { fetchGraphByShareCode } from './lib/graphService';
 import { TopNav } from './components/TopNav';
 import { Sidebar } from './components/Sidebar';
 import { GraphCanvas } from './components/GraphCanvas';
@@ -16,7 +17,10 @@ import { PresetsModal } from './components/PresetsModal';
 import { TableModal } from './components/TableModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ExportModal } from './components/ExportModal';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { AuthModal } from './components/AuthModal';
+import { ShareSubmissionModal } from './components/ShareSubmissionModal';
+import { CommunityGalleryModal } from './components/CommunityGalleryModal';
+import { ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
   // Theme & Grid State
@@ -45,6 +49,12 @@ export default function App() {
   const [isTableOpen, setIsTableOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isShareSubmissionOpen, setIsShareSubmissionOpen] = useState(false);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+
+  // Notification Banner when loading a shared submission
+  const [loadedGraphTitle, setLoadedGraphTitle] = useState<string | null>(null);
 
   // Initial Mathematical Expressions: showcases implicit, parametric, polar, and dynamic slider!
   const [expressions, setExpressions] = useState<GraphExpression[]>([
@@ -94,8 +104,63 @@ export default function App() {
     'expr_folium'
   );
 
-  // Hydrate from URL state hash if available
+  // Load from unique share link query parameter: ?graph=pg_xxxx
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const graphCode = params.get('graph');
+
+    if (graphCode) {
+      fetchGraphByShareCode(graphCode).then((doc) => {
+        if (doc) {
+          try {
+            const rawExprs = JSON.parse(doc.expressionsJson);
+            const rawVp = JSON.parse(doc.viewportJson);
+
+            const parsedExprs: GraphExpression[] = rawExprs.map((e: any, idx: number) => ({
+              id: `shared_${idx}_${Date.now()}`,
+              rawText: e.rawText,
+              color: e.color || theme.curvePalette[idx % theme.curvePalette.length],
+              visible: e.visible !== false,
+              type: e.type || 'explicit',
+              sliderValue: e.sliderValue,
+              sliderMin: e.sliderMin,
+              sliderMax: e.sliderMax,
+              sliderStep: e.sliderStep,
+              tMin: e.tMin,
+              tMax: e.tMax,
+              thetaMin: e.thetaMin,
+              thetaMax: e.thetaMax,
+              showDerivative: e.showDerivative,
+              showIntegral: e.showIntegral,
+              integralA: e.integralA,
+              integralB: e.integralB,
+            }));
+
+            setExpressions(parsedExprs);
+            setActiveExpressionId(parsedExprs[0]?.id || null);
+
+            setViewport((prev) => ({
+              ...prev,
+              xMin: rawVp.xMin ?? -8,
+              xMax: rawVp.xMax ?? 8,
+              yMin: rawVp.yMin ?? -6,
+              yMax: rawVp.yMax ?? 6,
+            }));
+
+            if (doc.gridMode) setGridMode(doc.gridMode as GridMode);
+            if (doc.themeId) setThemeId(doc.themeId as ThemeId);
+
+            setLoadedGraphTitle(doc.title);
+            setTimeout(() => setLoadedGraphTitle(null), 5000);
+          } catch (e) {
+            console.error('Failed to hydrate shared graph:', e);
+          }
+        }
+      });
+      return;
+    }
+
+    // Fallback: check #state=...
     try {
       const hash = window.location.hash;
       if (hash.includes('state=')) {
@@ -136,7 +201,6 @@ export default function App() {
       try {
         const parsed = parseEquation(expr.rawText, angleUnit);
         map.set(expr.id, parsed);
-        // Sync expression type and variable name if detected
         if (parsed.type === 'slider' && expr.type !== 'slider') {
           expr.type = 'slider';
           expr.variableName = parsed.variableName;
@@ -181,7 +245,7 @@ export default function App() {
           const min = expr.sliderMin ?? -10;
           const max = expr.sliderMax ?? 10;
           const span = max - min;
-          const speed = (expr.playSpeed ?? 1) * (span / 4); // traverse span in ~4 seconds
+          const speed = (expr.playSpeed ?? 1) * (span / 4);
           let dir = expr.playDirection ?? 1;
           let nextVal = expr.sliderValue + dir * speed * dt;
 
@@ -386,6 +450,29 @@ export default function App() {
     );
   };
 
+  // Hydrate from Community / User Submission
+  const handleLoadGraphSubmission = (data: {
+    title: string;
+    expressions: GraphExpression[];
+    viewport: Viewport;
+    gridMode: GridMode;
+    themeId: ThemeId;
+  }) => {
+    setExpressions(data.expressions);
+    setActiveExpressionId(data.expressions[0]?.id || null);
+    setViewport((prev) => ({
+      ...prev,
+      xMin: data.viewport.xMin,
+      xMax: data.viewport.xMax,
+      yMin: data.viewport.yMin,
+      yMax: data.viewport.yMax,
+    }));
+    setGridMode(data.gridMode);
+    setThemeId(data.themeId);
+    setLoadedGraphTitle(data.title);
+    setTimeout(() => setLoadedGraphTitle(null), 5000);
+  };
+
   return (
     <div
       className="flex flex-col w-screen h-screen overflow-hidden select-none"
@@ -394,7 +481,7 @@ export default function App() {
         color: theme.textPrimary,
       }}
     >
-      {/* Top Bar Navigation (Strict 3-Zone Contract) */}
+      {/* Top Bar Navigation (Strict 3-Zone Contract with Auth & Share Submission) */}
       <TopNav
         theme={theme}
         onOpenPresets={() => setIsPresetsOpen(true)}
@@ -402,8 +489,32 @@ export default function App() {
         isAnalysisOpen={isAnalysisOpen}
         onOpenTable={() => setIsTableOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenExport={() => setIsExportOpen(true)}
+        onOpenShareSubmission={() => setIsShareSubmissionOpen(true)}
+        onOpenGallery={() => setIsGalleryOpen(true)}
+        onOpenAuth={() => setIsAuthOpen(true)}
       />
+
+      {/* Shared Graph Loaded Toast Banner */}
+      {loadedGraphTitle && (
+        <div
+          className="px-4 py-2 border-b flex items-center justify-between text-xs font-semibold animate-in slide-in-from-top duration-200 z-30"
+          style={{
+            backgroundColor: theme.accent,
+            color: '#FFFFFF',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Loaded Submission: {loadedGraphTitle}</span>
+          </div>
+          <button
+            onClick={() => setLoadedGraphTitle(null)}
+            className="text-2xs underline hover:opacity-80"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Main Workspace Frame */}
       <div className="flex-1 flex overflow-hidden relative">
@@ -510,12 +621,41 @@ export default function App() {
         onSelectAngleUnit={setAngleUnit}
       />
 
-      {/* Export & Share Modal */}
+      {/* Export & Download Modal */}
       <ExportModal
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}
         theme={theme}
         expressions={expressions}
+        onOpenShareSubmission={() => setIsShareSubmissionOpen(true)}
+      />
+
+      {/* User Login & Account Modal */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        theme={theme}
+        onSuccess={() => setIsShareSubmissionOpen(true)}
+      />
+
+      {/* Unique Graph Submission & Share Modal */}
+      <ShareSubmissionModal
+        isOpen={isShareSubmissionOpen}
+        onClose={() => setIsShareSubmissionOpen(false)}
+        theme={theme}
+        expressions={expressions}
+        viewport={viewport}
+        gridMode={gridMode}
+        themeId={themeId}
+        onOpenAuth={() => setIsAuthOpen(true)}
+      />
+
+      {/* Community & Personal Submissions Gallery Archive */}
+      <CommunityGalleryModal
+        isOpen={isGalleryOpen}
+        onClose={() => setIsGalleryOpen(false)}
+        theme={theme}
+        onLoadGraphSubmission={handleLoadGraphSubmission}
       />
     </div>
   );

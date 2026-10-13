@@ -7,6 +7,7 @@ interface ExportModalProps {
   onClose: () => void;
   theme: ThemeConfig;
   expressions: GraphExpression[];
+  onOpenShareSubmission?: () => void;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -14,6 +15,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onClose,
   theme,
   expressions,
+  onOpenShareSubmission,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedLatex, setCopiedLatex] = useState(false);
@@ -147,6 +149,26 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               {copiedLatex ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
             </button>
 
+            {onOpenShareSubmission && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenShareSubmission();
+                }}
+                className="w-full py-2.5 px-4 rounded-xl border flex items-center justify-between font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                style={{
+                  borderColor: theme.accent,
+                  color: theme.accent,
+                }}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Share2 className="w-4 h-4" />
+                  <span>Publish & Generate Unique Share Code</span>
+                </div>
+                <span className="text-2xs font-mono px-2 py-0.5 rounded bg-black/5 dark:bg-white/5">Cloud</span>
+              </button>
+            )}
+
             <button
               onClick={handleCopyShareLink}
               className="w-full py-2.5 px-4 rounded-xl border flex items-center justify-between font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
@@ -157,7 +179,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <Share2 className="w-4 h-4" />
-                <span>Copy Shareable URL Link</span>
+                <span>Copy Direct URL State Hash</span>
               </div>
               {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
             </button>

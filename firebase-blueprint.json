@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "GraphSubmission": {
+      "title": "GraphSubmission",
+      "description": "A saved mathematical graph submission with expressions, viewport, and cartography configurations",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "authorId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "authorName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "shareCode": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "isPublic": {
+          "type": "boolean"
+        },
+        "expressionsJson": {
+          "type": "string",
+          "maxLength": 25000
+        },
+        "viewportJson": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "gridMode": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "themeId": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "title",
+        "authorId",
+        "shareCode",
+        "isPublic",
+        "expressionsJson",
+        "viewportJson"
+      ]
+    }
+  },
+  "firestore": {
+    "/graphs/{graphId}": {
+      "schema": "GraphSubmission",
+      "description": "Collection of user-created mathematical graph submissions"
+    }
+  }
+}

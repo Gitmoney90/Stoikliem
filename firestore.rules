@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidGraph(data) {
+      return data.keys().hasAll(['title', 'authorId', 'shareCode', 'isPublic', 'expressionsJson', 'viewportJson']) &&
+        data.keys().hasOnly(['title', 'description', 'authorId', 'authorName', 'shareCode', 'isPublic', 'expressionsJson', 'viewportJson', 'gridMode', 'themeId', 'createdAt', 'updatedAt']) &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+        data.authorId is string && data.authorId == request.auth.uid &&
+        (!('authorName' in data) || (data.authorName is string && data.authorName.size() <= 100)) &&
+        data.shareCode is string && data.shareCode.size() <= 64 &&
+        data.isPublic is bool &&
+        data.expressionsJson is string && data.expressionsJson.size() <= 25000 &&
+        data.viewportJson is string && data.viewportJson.size() <= 1000 &&
+        (!('gridMode' in data) || (data.gridMode is string && data.gridMode.size() <= 20)) &&
+        (!('themeId' in data) || (data.themeId is string && data.themeId.size() <= 30));
+    }
+
+    match /graphs/{graphId} {
+      allow get: if isValidId(graphId) && (
+        resource.data.isPublic == true ||
+        (isSignedIn() && resource.data.authorId == request.auth.uid)
+      );
+
+      allow list: if (
+        resource.data.isPublic == true ||
+        (isSignedIn() && resource.data.authorId == request.auth.uid)
+      );
+
+      allow create: if isValidId(graphId) &&
+        isSignedIn() &&
+        isValidGraph(incoming()) &&
+        incoming().authorId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidId(graphId) &&
+        isSignedIn() &&
+        resource.data.authorId == request.auth.uid &&
+        isValidGraph(incoming()) &&
+        incoming().authorId == resource.data.authorId &&
+        incoming().createdAt == resource.data.createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'authorName', 'isPublic', 'expressionsJson', 'viewportJson', 'gridMode', 'themeId', 'updatedAt']);
+
+      allow delete: if isValidId(graphId) &&
+        isSignedIn() &&
+        resource.data.authorId == request.auth.uid;
+    }
+  }
+}
