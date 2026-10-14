@@ -181,6 +181,49 @@
         "body",
         "isPublic"
       ]
+    },
+    "P2PRoom": {
+      "title": "P2PRoom",
+      "description": "Real-time P2P WebRTC signaling room and collaborative session",
+      "type": "object",
+      "properties": {
+        "roomCode": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "status": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "hostOffer": {
+          "type": "string",
+          "maxLength": 15000
+        },
+        "guestAnswer": {
+          "type": "string",
+          "maxLength": 15000
+        },
+        "graphSyncJson": {
+          "type": "string",
+          "maxLength": 25000
+        },
+        "chatMessagesJson": {
+          "type": "string",
+          "maxLength": 25000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "roomCode",
+        "status"
+      ]
     }
   },
   "firestore": {
@@ -195,6 +238,10 @@
     "/research_posts/{postId}": {
       "schema": "ResearchPost",
       "description": "Collection of peer research posts, theorems, conjectures, and proofs"
+    },
+    "/p2p_rooms/{roomId}": {
+      "schema": "P2PRoom",
+      "description": "Real-time WebRTC P2P signaling rooms and live synced state"
     }
   }
 }

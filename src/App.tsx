@@ -71,6 +71,17 @@ export default function App() {
     p2pEngine.onStateChange = (st) => setP2PConnectionState(st);
   }, [p2pEngine]);
 
+  // Check URL parameters for direct P2P Room invite link
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const roomParam = params.get('p2p_room');
+      if (roomParam) {
+        setIsP2PRoomOpen(true);
+      }
+    } catch {}
+  }, []);
+
   // Notification Banner when loading a shared submission
   const [loadedGraphTitle, setLoadedGraphTitle] = useState<string | null>(null);
 

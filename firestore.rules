@@ -157,5 +157,24 @@ service cloud.firestore {
         isSignedIn() &&
         resource.data.authorId == request.auth.uid;
     }
+
+    function isValidP2PRoom(data) {
+      return data.keys().hasAll(['roomCode', 'status']) &&
+        data.keys().hasOnly(['roomCode', 'status', 'hostOffer', 'guestAnswer', 'graphSyncJson', 'chatMessagesJson', 'createdAt', 'updatedAt']) &&
+        data.roomCode is string && data.roomCode.size() <= 32 &&
+        data.status is string && data.status.size() <= 20 &&
+        (!('hostOffer' in data) || (data.hostOffer is string && data.hostOffer.size() <= 15000)) &&
+        (!('guestAnswer' in data) || (data.guestAnswer is string && data.guestAnswer.size() <= 15000)) &&
+        (!('graphSyncJson' in data) || (data.graphSyncJson is string && data.graphSyncJson.size() <= 25000)) &&
+        (!('chatMessagesJson' in data) || (data.chatMessagesJson is string && data.chatMessagesJson.size() <= 25000));
+    }
+
+    match /p2p_rooms/{roomId} {
+      allow get: if isValidId(roomId);
+      allow list: if false;
+      allow create: if isValidId(roomId) && isValidP2PRoom(incoming());
+      allow update: if isValidId(roomId) && isValidP2PRoom(incoming());
+      allow delete: if isValidId(roomId);
+    }
   }
 }

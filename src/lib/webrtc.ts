@@ -1,6 +1,7 @@
 /**
- * Serverless Zero-Backend Peer-to-Peer WebRTC Engine
- * Uses browser-native RTCPeerConnection, RTCDataChannel, and QR code signaling.
+ * Serverless & Cloud-Signaled Peer-to-Peer WebRTC Engine for Principia Graphica
+ * Supports both automatic 1-click Cloud Signaling (via 6-char Room Codes)
+ * and Air-Gapped Manual QR/Token Handshake.
  */
 
 import { GraphExpression, Viewport, GridMode, ThemeId } from '../types/graph';
@@ -45,59 +46,94 @@ const ICE_SERVERS: RTCConfiguration = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
   ],
 };
 
 /**
- * Compact encoding for SDP tokens to keep QR code density scan-friendly
+ * Robust, client-safe base64 string encoder using TextEncoder
  */
 export function encodeSignalToken(data: { type: 'offer' | 'answer'; sdp: string }): string {
   try {
     const json = JSON.stringify(data);
-    // Base64 encode safe for URL and QR
-    return btoa(unescape(encodeURIComponent(json)));
+    const bin = new TextEncoder().encode(json);
+    let binary = '';
+    for (let i = 0; i < bin.length; i++) {
+      binary += String.fromCharCode(bin[i]);
+    }
+    return btoa(binary);
   } catch {
     return btoa(JSON.stringify(data));
   }
 }
 
+/**
+ * Robust signal token decoder
+ */
 export function decodeSignalToken(token: string): { type: 'offer' | 'answer'; sdp: string } {
   const trimmed = token.trim();
-  let decodedStr: string;
   try {
-    decodedStr = decodeURIComponent(escape(atob(trimmed)));
-  } catch {
-    decodedStr = atob(trimmed);
+    const binary = atob(trimmed);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const decodedStr = new TextDecoder().decode(bytes);
+    const parsed = JSON.parse(decodedStr);
+    if (!parsed || !parsed.type || !parsed.sdp) {
+      throw new Error('Invalid signaling token');
+    }
+    return parsed;
+  } catch (err: any) {
+    // Fallback direct JSON parse in case raw JSON was pasted
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed?.type && parsed?.sdp) return parsed;
+    } catch {}
+    throw new Error('Could not parse token. Ensure the complete string was copied.');
   }
-  const parsed = JSON.parse(decodedStr);
-  if (!parsed || !parsed.type || !parsed.sdp) {
-    throw new Error('Invalid signaling token format');
-  }
-  return parsed;
 }
 
 /**
- * Waits for ICE candidates gathering to finish so the SDP contains complete connectivity data.
+ * Waits for ICE candidates gathering to produce usable connectivity candidates.
  */
-function waitForIceGathering(pc: RTCPeerConnection, timeoutMs = 3500): Promise<void> {
+function waitForIceGathering(pc: RTCPeerConnection, timeoutMs = 2800): Promise<void> {
   return new Promise((resolve) => {
     if (pc.iceGatheringState === 'complete') {
       resolve();
       return;
     }
 
+    let candidateCount = 0;
     const timer = setTimeout(() => {
       resolve();
     }, timeoutMs);
+
+    const onCandidate = (e: RTCPeerConnectionIceEvent) => {
+      if (e.candidate) {
+        candidateCount++;
+        // If we already have multiple candidates and a short window passed, resolve early
+        if (candidateCount >= 3) {
+          setTimeout(() => {
+            clearTimeout(timer);
+            pc.removeEventListener('icecandidate', onCandidate);
+            resolve();
+          }, 400);
+        }
+      }
+    };
 
     const checkState = () => {
       if (pc.iceGatheringState === 'complete') {
         clearTimeout(timer);
         pc.removeEventListener('icegatheringstatechange', checkState);
+        pc.removeEventListener('icecandidate', onCandidate);
         resolve();
       }
     };
 
+    pc.addEventListener('icecandidate', onCandidate);
     pc.addEventListener('icegatheringstatechange', checkState);
   });
 }
@@ -116,7 +152,8 @@ export class P2PEngine {
     return this.state;
   }
 
-  private setState(newState: P2PConnectionState) {
+  public setState(newState: P2PConnectionState) {
+    if (this.state === newState) return;
     this.state = newState;
     if (this.onStateChange) this.onStateChange(newState);
   }
@@ -129,11 +166,15 @@ export class P2PEngine {
     };
 
     dc.onclose = () => {
-      this.setState('disconnected');
+      if (this.state === 'connected') {
+        this.setState('disconnected');
+      }
     };
 
     dc.onerror = () => {
-      this.setState('failed');
+      if (this.state === 'connected') {
+        this.setState('failed');
+      }
     };
 
     dc.onmessage = (event) => {
@@ -141,7 +182,40 @@ export class P2PEngine {
         const packet: P2PDataPacket = JSON.parse(event.data);
         if (this.onPacketReceived) this.onPacketReceived(packet);
       } catch (err) {
-        console.error('P2P message parsing failed', err);
+        console.warn('P2P message parsing warning:', err);
+      }
+    };
+  }
+
+  private attachPeerListeners(pc: RTCPeerConnection) {
+    // 1. Connection state change
+    pc.onconnectionstatechange = () => {
+      if (!this.pc) return;
+      const cs = this.pc.connectionState;
+      if (cs === 'connected') {
+        this.setState('connected');
+      } else if (cs === 'failed') {
+        // Only set failed if ice isn't connected
+        if (this.pc.iceConnectionState !== 'connected' && this.pc.iceConnectionState !== 'completed') {
+          this.setState('failed');
+        }
+      } else if (cs === 'closed') {
+        this.setState('disconnected');
+      }
+    };
+
+    // 2. ICE connection state change (often triggers faster than connectionState)
+    pc.oniceconnectionstatechange = () => {
+      if (!this.pc) return;
+      const ics = this.pc.iceConnectionState;
+      if (ics === 'connected' || ics === 'completed') {
+        this.setState('connected');
+      } else if (ics === 'failed') {
+        if (this.state !== 'connected') {
+          this.setState('failed');
+        }
+      } else if (ics === 'disconnected') {
+        this.setState('disconnected');
       }
     };
   }
@@ -154,15 +228,7 @@ export class P2PEngine {
     this.setState('connecting');
 
     this.pc = new RTCPeerConnection(ICE_SERVERS);
-
-    this.pc.onconnectionstatechange = () => {
-      if (!this.pc) return;
-      if (this.pc.connectionState === 'connected') {
-        this.setState('connected');
-      } else if (this.pc.connectionState === 'failed' || this.pc.connectionState === 'closed') {
-        this.setState('disconnected');
-      }
-    };
+    this.attachPeerListeners(this.pc);
 
     // Create Data Channel
     const dc = this.pc.createDataChannel('principia-p2p', {
@@ -174,7 +240,7 @@ export class P2PEngine {
     const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
 
-    // Gather all local ICE candidates into the SDP
+    // Gather local ICE candidates into the SDP
     await waitForIceGathering(this.pc);
 
     if (!this.pc.localDescription) {
@@ -212,15 +278,7 @@ export class P2PEngine {
     }
 
     this.pc = new RTCPeerConnection(ICE_SERVERS);
-
-    this.pc.onconnectionstatechange = () => {
-      if (!this.pc) return;
-      if (this.pc.connectionState === 'connected') {
-        this.setState('connected');
-      } else if (this.pc.connectionState === 'failed' || this.pc.connectionState === 'closed') {
-        this.setState('disconnected');
-      }
-    };
+    this.attachPeerListeners(this.pc);
 
     this.pc.ondatachannel = (e) => {
       this.setupDataChannel(e.channel);
@@ -250,8 +308,12 @@ export class P2PEngine {
     if (!this.channel || this.channel.readyState !== 'open') {
       return false;
     }
-    this.channel.send(JSON.stringify(packet));
-    return true;
+    try {
+      this.channel.send(JSON.stringify(packet));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -259,11 +321,15 @@ export class P2PEngine {
    */
   public disconnect() {
     if (this.channel) {
-      this.channel.close();
+      try {
+        this.channel.close();
+      } catch {}
       this.channel = null;
     }
     if (this.pc) {
-      this.pc.close();
+      try {
+        this.pc.close();
+      } catch {}
       this.pc = null;
     }
     this.setState('disconnected');
