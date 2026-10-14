@@ -18,6 +18,8 @@ import {
   ArrowRight,
   Search,
   Sparkles,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 
 interface CommunityGalleryModalProps {
@@ -46,49 +48,53 @@ export const CommunityGalleryModal: React.FC<CommunityGalleryModalProps> = ({
   const [publicGraphs, setPublicGraphs] = useState<GraphDocument[]>([]);
   const [userGraphs, setUserGraphs] = useState<GraphDocument[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
+  const loadData = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const pub = await fetchPublicGraphs(30);
+      // Merge with any freshly submitted optimistic posts
+      const mergedPublic = [...pub];
+      optimisticSubmissions.forEach((opt) => {
+        if (opt.isPublic && !mergedPublic.some((g) => g.id === opt.id || g.shareCode === opt.shareCode)) {
+          mergedPublic.unshift(opt);
+        }
+      });
+      setPublicGraphs(mergedPublic);
 
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const pub = await fetchPublicGraphs(30);
-        // Merge with any freshly submitted optimistic posts
-        const mergedPublic = [...pub];
+      if (user) {
+        const usr = await fetchUserGraphs(user.uid);
+        const mergedUser = [...usr];
         optimisticSubmissions.forEach((opt) => {
-          if (opt.isPublic && !mergedPublic.some((g) => g.id === opt.id || g.shareCode === opt.shareCode)) {
-            mergedPublic.unshift(opt);
+          if (
+            opt.authorId === user.uid &&
+            !mergedUser.some((g) => g.id === opt.id || g.shareCode === opt.shareCode)
+          ) {
+            mergedUser.unshift(opt);
           }
         });
-        setPublicGraphs(mergedPublic);
-
-        if (user) {
-          const usr = await fetchUserGraphs(user.uid);
-          const mergedUser = [...usr];
-          optimisticSubmissions.forEach((opt) => {
-            if (
-              opt.authorId === user.uid &&
-              !mergedUser.some((g) => g.id === opt.id || g.shareCode === opt.shareCode)
-            ) {
-              mergedUser.unshift(opt);
-            }
-          });
-          setUserGraphs(mergedUser);
-        }
-      } catch (err: any) {
-        console.error('Error loading gallery graphs:', err);
-        const errMsg = err?.message || 'Could not load community submissions.';
-        window.alert(`Archive Error: ${errMsg}`);
-      } finally {
-        setLoading(false);
+        setUserGraphs(mergedUser);
       }
-    };
+    } catch (err: any) {
+      console.error('Error loading gallery graphs:', err);
+      const errMsg = err?.message || 'Could not load community submissions.';
+      setError(errMsg);
+      // Show alert with exact message
+      window.alert(`Archive Error: ${errMsg}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, optimisticSubmissions]);
 
-    loadData();
-  }, [isOpen, user, optimisticSubmissions]);
+  useEffect(() => {
+    if (isOpen) {
+      loadData();
+    }
+  }, [isOpen, loadData]);
 
   if (!isOpen) return null;
 
@@ -261,11 +267,32 @@ export const CommunityGalleryModal: React.FC<CommunityGalleryModalProps> = ({
           </div>
         </div>
 
+        {/* Error Alert Banner if an error occurred */}
+        {error && (
+          <div className="mx-6 mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 text-xs flex items-center justify-between gap-3 shrink-0 animate-in fade-in duration-150">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+              <div className="truncate font-mono">
+                <span className="font-semibold">Archive Error:</span> {error}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => loadData()}
+              className="px-3 py-1 rounded-lg bg-rose-600 text-white font-semibold text-2xs hover:bg-rose-700 transition-colors shrink-0 flex items-center gap-1 active:scale-95"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Retry</span>
+            </button>
+          </div>
+        )}
+
         {/* List Grid */}
         <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
           {loading ? (
-            <div className="col-span-2 py-16 text-center text-xs" style={{ color: theme.textMuted }}>
-              Loading mathematical submissions from Firestore...
+            <div className="col-span-2 py-16 text-center text-xs flex flex-col items-center justify-center gap-2" style={{ color: theme.textMuted }}>
+              <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <span>Loading mathematical submissions from Firestore...</span>
             </div>
           ) : filteredList.length > 0 ? (
             filteredList.map((g) => (
