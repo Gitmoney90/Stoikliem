@@ -156,6 +156,22 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
           />
         </div>
 
+        {/* Quick f'(x) Derivative Button */}
+        {isExplicit && onOpenCAS && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenCAS();
+            }}
+            title="Compute exact symbolic derivative & CAS in Studio"
+            className="px-2 py-1 rounded text-2xs font-serif italic border hover:bg-black/5 dark:hover:bg-white/5 transition-colors shrink-0 font-bold"
+            style={{ borderColor: theme.border, color: theme.accent }}
+          >
+            f′(x)
+          </button>
+        )}
+
         {/* Actions Dropdown Button */}
         <div className="relative">
           <button

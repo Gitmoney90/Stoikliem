@@ -17,6 +17,7 @@ import {
   ChevronRight,
   TrendingUp,
   Sparkles,
+  ScrollText,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -39,6 +40,7 @@ interface MobileBottomNavProps {
   onOpenExport: () => void;
   isKeypadOpen: boolean;
   onToggleKeypad: () => void;
+  onOpenResearch: () => void;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
@@ -60,6 +62,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onOpenExport,
   isKeypadOpen,
   onToggleKeypad,
+  onOpenResearch,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, profile } = useAuth();
@@ -172,6 +175,26 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               >
                 <Globe className="w-4 h-4 shrink-0" style={{ color: theme.accent }} />
                 <span className="truncate">Submissions Archive</span>
+              </button>
+
+              {/* Research & Theorems Annals */}
+              <button
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  onOpenResearch();
+                }}
+                className="min-h-[48px] p-3 rounded-xl border flex items-center gap-2.5 font-medium text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style={{
+                  backgroundColor: theme.bgCard,
+                  borderColor: theme.border,
+                  color: theme.textPrimary,
+                }}
+              >
+                <ScrollText className="w-4 h-4 shrink-0 text-indigo-500" />
+                <div className="flex flex-col text-left">
+                  <span className="truncate">Theorems & Annals</span>
+                  <span className="text-3xs text-indigo-600 dark:text-indigo-400 font-semibold">Research</span>
+                </div>
               </button>
 
               {/* Cartography & Grid Settings */}

@@ -23,8 +23,9 @@ import { CommunityGalleryModal } from './components/CommunityGalleryModal';
 import { P2PRoomModal } from './components/P2PRoomModal';
 import { GraphTheoryModal } from './components/GraphTheoryModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { ResearchAnnalsModal } from './components/ResearchAnnalsModal';
 import { P2PEngine, P2PConnectionState } from './lib/webrtc';
-import { ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Sparkles } from 'lucide-react';
 
 export default function App() {
   // Theme & Grid State
@@ -58,6 +59,8 @@ export default function App() {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isP2PRoomOpen, setIsP2PRoomOpen] = useState(false);
   const [isGraphTheoryOpen, setIsGraphTheoryOpen] = useState(false);
+  const [isResearchOpen, setIsResearchOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [optimisticSubmissions, setOptimisticSubmissions] = useState<GraphDocument[]>([]);
 
   // WebRTC P2P Engine Instance
@@ -463,6 +466,41 @@ export default function App() {
     setActiveExpressionId(newId);
   };
 
+  // Toast feedback banner helper
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Quick mathematical template insert
+  const handleAddExpressionWithText = (rawText: string) => {
+    const newId = `expr_${Date.now()}`;
+    const nextColor = theme.curvePalette[expressions.length % theme.curvePalette.length];
+    const newExpr: GraphExpression = {
+      id: newId,
+      rawText,
+      color: nextColor,
+      visible: true,
+      type: 'explicit',
+    };
+    setExpressions((prev) => [...prev, newExpr]);
+    setActiveExpressionId(newId);
+    showToast(`Added locus: ${rawText}`);
+  };
+
+  // Plot attached locus from research dispatches
+  const handlePlotAttachedExpressions = (exprs: GraphExpression[], title: string) => {
+    const plotted = exprs.map((e, idx) => ({
+      ...e,
+      id: `th_${Date.now()}_${idx}`,
+      visible: true,
+      color: e.color || theme.curvePalette[idx % theme.curvePalette.length],
+    }));
+    setExpressions(plotted);
+    setActiveExpressionId(plotted[0]?.id || null);
+    showToast(`Plotted locus for: "${title}"`);
+  };
+
   // Virtual Keypad insert & backspace
   const handleInsertKeypadText = (str: string) => {
     if (!activeExpressionId) {
@@ -548,7 +586,16 @@ export default function App() {
         onOpenP2PRoom={() => setIsP2PRoomOpen(true)}
         isP2PConnected={p2pConnectionState === 'connected'}
         onOpenGraphTheory={() => setIsGraphTheoryOpen(true)}
+        onOpenResearch={() => setIsResearchOpen(true)}
       />
+
+      {/* Floating Smooth Toast Feedback Banner */}
+      {toastMessage && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 pointer-events-none px-4 py-2 bg-stone-900/90 text-stone-100 backdrop-blur-md rounded-full shadow-2xl border border-stone-700/60 text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-200 flex items-center gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
       {/* Shared Graph Loaded Toast Banner */}
       {loadedGraphTitle && (
@@ -584,6 +631,7 @@ export default function App() {
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           onSelectExpression={(id) => setActiveExpressionId(id)}
           onAddExpression={handleAddExpression}
+          onAddExpressionWithText={handleAddExpressionWithText}
           onUpdateText={handleUpdateText}
           onToggleVisible={handleToggleVisible}
           onChangeColor={handleChangeColor}
@@ -671,6 +719,7 @@ export default function App() {
         onOpenExport={() => setIsExportOpen(true)}
         isKeypadOpen={isKeypadOpen}
         onToggleKeypad={() => setIsKeypadOpen(!isKeypadOpen)}
+        onOpenResearch={() => setIsResearchOpen(true)}
       />
 
       {/* Classical Curve Presets Gallery Modal */}
@@ -769,6 +818,16 @@ export default function App() {
         isOpen={isGraphTheoryOpen}
         onClose={() => setIsGraphTheoryOpen(false)}
         theme={theme}
+      />
+
+      {/* Research & Theorems Annals Modal */}
+      <ResearchAnnalsModal
+        isOpen={isResearchOpen}
+        onClose={() => setIsResearchOpen(false)}
+        theme={theme}
+        currentExpressions={expressions}
+        onPlotAttachedExpressions={handlePlotAttachedExpressions}
+        onShowToast={showToast}
       />
     </div>
   );

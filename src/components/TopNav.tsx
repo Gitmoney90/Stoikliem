@@ -13,6 +13,7 @@ import {
   Radio,
   Network,
   Sparkles,
+  ScrollText,
 } from 'lucide-react';
 
 interface TopNavProps {
@@ -28,6 +29,7 @@ interface TopNavProps {
   onOpenP2PRoom: () => void;
   isP2PConnected: boolean;
   onOpenGraphTheory: () => void;
+  onOpenResearch: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -43,6 +45,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   onOpenP2PRoom,
   isP2PConnected,
   onOpenGraphTheory,
+  onOpenResearch,
 }) => {
   const { user, profile } = useAuth();
 
@@ -101,6 +104,19 @@ export const TopNav: React.FC<TopNavProps> = ({
         >
           <Network className="w-3.5 h-3.5" />
           <span>Graph Theory</span>
+        </button>
+
+        <button
+          onClick={onOpenResearch}
+          title="Peer Research Dispatches, Theorems, Conjectures & Verified Loci"
+          className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1"
+          style={{ color: theme.textSecondary }}
+        >
+          <ScrollText className="w-3.5 h-3.5 text-indigo-500" />
+          <span>Theorems & Research</span>
+          <span className="px-1.5 py-0.2 rounded text-3xs font-mono font-bold bg-indigo-500/15 text-indigo-700 dark:text-indigo-400">
+            Annals
+          </span>
         </button>
 
         {/* P2P Room Link with Live Status */}

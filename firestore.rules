@@ -103,5 +103,59 @@ service cloud.firestore {
         isSignedIn() &&
         resource.data.authorId == request.auth.uid;
     }
+
+    function isValidResearchPost(data) {
+      return data.keys().hasAll(['title', 'category', 'authorId', 'latexStatement', 'body', 'isPublic']) &&
+        data.keys().hasOnly(['title', 'category', 'authorId', 'authorName', 'authorTitle', 'authorAvatarEmoji', 'latexStatement', 'body', 'attachedExpressionsJson', 'tags', 'endorsementsCount', 'isPublic', 'createdAt', 'updatedAt']) &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 150 &&
+        data.category is string && data.category.size() <= 30 &&
+        data.authorId is string && data.authorId == request.auth.uid &&
+        (!('authorName' in data) || (data.authorName is string && data.authorName.size() <= 100)) &&
+        (!('authorTitle' in data) || (data.authorTitle is string && data.authorTitle.size() <= 100)) &&
+        (!('authorAvatarEmoji' in data) || (data.authorAvatarEmoji is string && data.authorAvatarEmoji.size() <= 10)) &&
+        data.latexStatement is string && data.latexStatement.size() <= 2000 &&
+        data.body is string && data.body.size() <= 5000 &&
+        (!('attachedExpressionsJson' in data) || (data.attachedExpressionsJson is string && data.attachedExpressionsJson.size() <= 25000)) &&
+        (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
+        (!('endorsementsCount' in data) || (data.endorsementsCount is number && data.endorsementsCount >= 0)) &&
+        data.isPublic is bool;
+    }
+
+    match /research_posts/{postId} {
+      allow get: if isValidId(postId) && (
+        resource.data.isPublic == true ||
+        (isSignedIn() && resource.data.authorId == request.auth.uid)
+      );
+
+      allow list: if (
+        resource.data.isPublic == true ||
+        (isSignedIn() && resource.data.authorId == request.auth.uid)
+      );
+
+      allow create: if isValidId(postId) &&
+        isSignedIn() &&
+        isValidResearchPost(incoming()) &&
+        incoming().authorId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidId(postId) &&
+        isSignedIn() &&
+        (
+          (resource.data.authorId == request.auth.uid &&
+           isValidResearchPost(incoming()) &&
+           incoming().authorId == resource.data.authorId &&
+           incoming().createdAt == resource.data.createdAt &&
+           incoming().updatedAt == request.time &&
+           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'authorName', 'authorTitle', 'authorAvatarEmoji', 'latexStatement', 'body', 'attachedExpressionsJson', 'tags', 'isPublic', 'endorsementsCount', 'updatedAt'])) ||
+          (incoming().diff(existing()).affectedKeys().hasOnly(['endorsementsCount', 'updatedAt']) &&
+           incoming().endorsementsCount is number &&
+           incoming().updatedAt == request.time)
+        );
+
+      allow delete: if isValidId(postId) &&
+        isSignedIn() &&
+        resource.data.authorId == request.auth.uid;
+    }
   }
 }

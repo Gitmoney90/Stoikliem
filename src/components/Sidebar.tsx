@@ -26,6 +26,7 @@ interface SidebarProps {
   onKeypadBackspace: () => void;
   onKeypadClear: () => void;
   onOpenCAS?: (id: string) => void;
+  onAddExpressionWithText?: (rawText: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -49,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onKeypadBackspace,
   onKeypadClear,
   onOpenCAS,
+  onAddExpressionWithText,
 }) => {
   return (
     <>
@@ -124,6 +126,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <X className="w-4 h-4" />
             </button>
           </div>
+        </div>
+
+        {/* Quick Mathematical Template Chips Strip */}
+        <div
+          className="px-3 py-2 border-b flex items-center gap-1.5 overflow-x-auto shrink-0 select-none text-2xs"
+          style={{ borderColor: theme.border, backgroundColor: theme.bgCard }}
+        >
+          <span className="text-3xs uppercase tracking-wider font-semibold opacity-60 shrink-0 mr-1">
+            Quick:
+          </span>
+          {[
+            { label: 'sin(x)', text: 'y = sin(x)' },
+            { label: 'x² - 4', text: 'y = x^2 - 4' },
+            { label: 'e^(-x²)', text: 'y = exp(-x^2)' },
+            { label: '1/x', text: 'y = 1/x' },
+            { label: 'ln(x)', text: 'y = ln(x)' },
+            { label: 'x³ - 3x', text: 'y = x^3 - 3*x' },
+            { label: 'x²+y²=25', text: 'x^2 + y^2 = 25' },
+            { label: 'r = 1+cos(θ)', text: 'r = 1 + cos(theta)' },
+          ].map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => onAddExpressionWithText ? onAddExpressionWithText(item.text) : onAddExpression('function')}
+              title={`Quickly plot ${item.label}`}
+              className="px-2 py-0.5 rounded-md border font-mono whitespace-nowrap hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all text-3xs"
+              style={{
+                borderColor: theme.border,
+                color: theme.textSecondary,
+                backgroundColor: theme.bgSidebar,
+              }}
+            >
+              +{item.label}
+            </button>
+          ))}
         </div>
 
       {/* Expression Cards List */}

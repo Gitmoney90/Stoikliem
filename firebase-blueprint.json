@@ -109,6 +109,78 @@
         "expressionsJson",
         "viewportJson"
       ]
+    },
+    "ResearchPost": {
+      "title": "ResearchPost",
+      "description": "A mathematical research dispatch containing theorems, conjectures, lemmas, proofs, LaTeX formulas, and attached locus expressions",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "authorId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "authorName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "authorTitle": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "authorAvatarEmoji": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "latexStatement": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "attachedExpressionsJson": {
+          "type": "string",
+          "maxLength": 25000
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Disciplinary tags for categorizing research posts"
+        },
+        "endorsementsCount": {
+          "type": "number"
+        },
+        "isPublic": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "title",
+        "category",
+        "authorId",
+        "latexStatement",
+        "body",
+        "isPublic"
+      ]
     }
   },
   "firestore": {
@@ -119,6 +191,10 @@
     "/graphs/{graphId}": {
       "schema": "GraphSubmission",
       "description": "Collection of user-created mathematical graph submissions"
+    },
+    "/research_posts/{postId}": {
+      "schema": "ResearchPost",
+      "description": "Collection of peer research posts, theorems, conjectures, and proofs"
     }
   }
 }

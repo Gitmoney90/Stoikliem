@@ -10,7 +10,7 @@ import {
   findExtremaInInterval,
   findIntersections,
 } from '../math/calculus';
-import { RotateCcw, ZoomIn, ZoomOut, Maximize2, Compass } from 'lucide-react';
+import { RotateCcw, ZoomIn, ZoomOut, Maximize2, Compass, Target, Camera, Check, Sparkles } from 'lucide-react';
 
 interface GraphCanvasProps {
   viewport: Viewport;
@@ -510,20 +510,78 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     });
   };
 
-  // Zoom controls
+  const animFrameRef = useRef<number | null>(null);
+  const [snapshotStatus, setSnapshotStatus] = useState<'copied' | 'downloaded' | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, []);
+
+  const animateToViewport = useCallback(
+    (target: { xMin: number; xMax: number; yMin: number; yMax: number }, duration = 280) => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+
+      const start = {
+        xMin: viewport.xMin,
+        xMax: viewport.xMax,
+        yMin: viewport.yMin,
+        yMax: viewport.yMax,
+      };
+
+      const startTime = performance.now();
+
+      const step = (now: number) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        // Smooth cubic ease out
+        const ease = 1 - Math.pow(1 - progress, 3);
+
+        onViewportChange({
+          ...viewport,
+          xMin: start.xMin + (target.xMin - start.xMin) * ease,
+          xMax: start.xMax + (target.xMax - start.xMax) * ease,
+          yMin: start.yMin + (target.yMin - start.yMin) * ease,
+          yMax: start.yMax + (target.yMax - start.yMax) * ease,
+        });
+
+        if (progress < 1) {
+          animFrameRef.current = requestAnimationFrame(step);
+        } else {
+          animFrameRef.current = null;
+        }
+      };
+
+      animFrameRef.current = requestAnimationFrame(step);
+    },
+    [viewport, onViewportChange]
+  );
+
+  // Zoom controls with smooth animation
   const handleZoom = (direction: 'in' | 'out') => {
-    const factor = direction === 'in' ? 0.75 : 1.33;
+    const factor = direction === 'in' ? 0.72 : 1.38;
     const centerX = (viewport.xMin + viewport.xMax) / 2;
     const centerY = (viewport.yMin + viewport.yMax) / 2;
     const spanX = (viewport.xMax - viewport.xMin) * factor;
     const spanY = (viewport.yMax - viewport.yMin) * factor;
 
-    onViewportChange({
-      ...viewport,
+    animateToViewport({
       xMin: centerX - spanX / 2,
       xMax: centerX + spanX / 2,
       yMin: centerY - spanY / 2,
       yMax: centerY + spanY / 2,
+    }, 200);
+  };
+
+  const handleRecenterOrigin = () => {
+    const spanX = viewport.xMax - viewport.xMin;
+    const spanY = viewport.yMax - viewport.yMin;
+    animateToViewport({
+      xMin: -spanX / 2,
+      xMax: spanX / 2,
+      yMin: -spanY / 2,
+      yMax: spanY / 2,
     });
   };
 
@@ -531,8 +589,31 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     const aspect = viewport.width / (viewport.height || 1);
     const halfY = 10;
     const halfX = 10 * aspect;
-    onViewportChange({
-      ...viewport,
+    animateToViewport({
+      xMin: -halfX,
+      xMax: halfX,
+      yMin: -halfY,
+      yMax: halfY,
+    });
+  };
+
+  const handleTrigViewport = () => {
+    const halfX = 2 * Math.PI;
+    const aspect = viewport.width / (viewport.height || 1);
+    const halfY = halfX / (aspect || 1);
+    animateToViewport({
+      xMin: -halfX,
+      xMax: halfX,
+      yMin: -halfY,
+      yMax: halfY,
+    });
+  };
+
+  const handleUnitCircleViewport = () => {
+    const aspect = viewport.width / (viewport.height || 1);
+    const halfY = 2.2;
+    const halfX = 2.2 * aspect;
+    animateToViewport({
       xMin: -halfX,
       xMax: halfX,
       yMin: -halfY,
@@ -544,13 +625,46 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     const centerX = (viewport.xMin + viewport.xMax) / 2;
     const centerY = (viewport.yMin + viewport.yMax) / 2;
     const spanX = viewport.xMax - viewport.xMin;
-    const desiredSpanY = (spanX * viewport.height) / viewport.width;
+    const desiredSpanY = (spanX * viewport.height) / (viewport.width || 1);
 
-    onViewportChange({
-      ...viewport,
+    animateToViewport({
+      xMin: viewport.xMin,
+      xMax: viewport.xMax,
       yMin: centerY - desiredSpanY / 2,
       yMax: centerY + desiredSpanY / 2,
-    });
+    }, 200);
+  };
+
+  const handleSnapshotCanvas = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    try {
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        try {
+          if (navigator.clipboard && navigator.clipboard.write) {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]);
+            setSnapshotStatus('copied');
+            setTimeout(() => setSnapshotStatus(null), 2000);
+            return;
+          }
+        } catch {
+          // Fallback to direct download
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `principia_graph_${Date.now()}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setSnapshotStatus('downloaded');
+        setTimeout(() => setSnapshotStatus(null), 2000);
+      });
+    } catch {
+      // ignore
+    }
   };
 
   return (
@@ -564,39 +678,84 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         onWheel={handleWheel}
       />
 
+      {/* Floating Top Convenient Viewport Presets Strip */}
+      <div className="absolute top-3 left-3 sm:left-4 z-20 flex items-center gap-1 p-1 bg-stone-900/80 hover:bg-stone-900/90 backdrop-blur-md rounded-xl border border-stone-700/60 shadow-lg text-stone-300 text-3xs sm:text-2xs font-medium transition-all">
+        <button
+          onClick={handleRecenterOrigin}
+          title="Recenter Origin (0,0)"
+          className="px-2 py-1 rounded-lg hover:text-white hover:bg-stone-800 flex items-center gap-1 transition-colors active:scale-95"
+        >
+          <Target className="w-3 h-3 text-amber-500" />
+          <span className="hidden sm:inline">Origin (0,0)</span>
+        </button>
+        <button
+          onClick={handleResetViewport}
+          title="Default Window [-10, 10]"
+          className="px-2 py-1 rounded-lg hover:text-white hover:bg-stone-800 transition-colors active:scale-95"
+        >
+          [-10, 10]
+        </button>
+        <button
+          onClick={handleTrigViewport}
+          title="Trigonometric Window [-2π, 2π]"
+          className="px-2 py-1 rounded-lg hover:text-white hover:bg-stone-800 transition-colors active:scale-95 font-serif italic"
+        >
+          [-2π, 2π]
+        </button>
+        <button
+          onClick={handleUnitCircleViewport}
+          title="Unit Geometric Window [-2, 2]"
+          className="px-2 py-1 rounded-lg hover:text-white hover:bg-stone-800 transition-colors active:scale-95"
+        >
+          Unit [-2, 2]
+        </button>
+      </div>
+
       {/* Floating Canvas Navigation Toolbar */}
       <div className="absolute right-3 sm:right-5 bottom-20 md:bottom-6 flex flex-col gap-1.5 p-1 bg-stone-900/85 backdrop-blur-md rounded-xl border border-stone-700/60 shadow-xl z-20 select-none">
         <button
           onClick={() => handleZoom('in')}
           title="Zoom In (+)"
-          className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] sm:min-w-[36px] min-h-[44px] sm:min-h-[36px] flex items-center justify-center p-2.5 sm:p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
+          className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
           aria-label="Zoom In"
         >
-          <ZoomIn className="w-5 h-5 sm:w-4 sm:h-4" />
+          <ZoomIn className="w-4 h-4" />
         </button>
         <button
           onClick={() => handleZoom('out')}
           title="Zoom Out (-)"
-          className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] sm:min-w-[36px] min-h-[44px] sm:min-h-[36px] flex items-center justify-center p-2.5 sm:p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
+          className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
           aria-label="Zoom Out"
         >
-          <ZoomOut className="w-5 h-5 sm:w-4 sm:h-4" />
+          <ZoomOut className="w-4 h-4" />
         </button>
         <button
           onClick={handleSquareAspect}
           title="Lock Square Aspect Ratio (1:1)"
-          className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] sm:min-w-[36px] min-h-[44px] sm:min-h-[36px] flex items-center justify-center p-2.5 sm:p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
+          className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
           aria-label="Square Aspect"
         >
-          <Maximize2 className="w-5 h-5 sm:w-4 sm:h-4" />
+          <Maximize2 className="w-4 h-4" />
         </button>
         <button
           onClick={handleResetViewport}
           title="Reset Standard Window"
-          className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] sm:min-w-[36px] min-h-[44px] sm:min-h-[36px] flex items-center justify-center p-2.5 sm:p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
+          className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
           aria-label="Reset View"
         >
-          <RotateCcw className="w-5 h-5 sm:w-4 sm:h-4" />
+          <RotateCcw className="w-4 h-4" />
+        </button>
+        <button
+          onClick={handleSnapshotCanvas}
+          title={snapshotStatus === 'copied' ? 'Copied image!' : 'Copy or Download Graph Snapshot'}
+          className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
+          aria-label="Snapshot Graph"
+        >
+          {snapshotStatus ? (
+            <Check className="w-4 h-4 text-emerald-400" />
+          ) : (
+            <Camera className="w-4 h-4 text-amber-400" />
+          )}
         </button>
       </div>
 
