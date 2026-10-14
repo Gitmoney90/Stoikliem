@@ -56,7 +56,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentUser) {
         await loadUserProfile(currentUser);
       } else {
-        setProfile(null);
+        const saved = localStorage.getItem('principia_scholar_profile');
+        if (saved) {
+          try {
+            setProfile(JSON.parse(saved));
+          } catch {
+            setProfile(null);
+          }
+        } else {
+          setProfile(null);
+        }
       }
       setLoading(false);
     });
@@ -79,7 +88,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOutUser = async () => {
     try {
       await signOut(auth);
-      setProfile(null);
+      const saved = localStorage.getItem('principia_scholar_profile');
+      if (saved) {
+        try {
+          setProfile(JSON.parse(saved));
+        } catch {
+          setProfile(null);
+        }
+      } else {
+        setProfile(null);
+      }
     } catch (err: any) {
       console.error('Sign-out failed:', err);
       throw err;
@@ -89,7 +107,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateProfile = async (
     data: Partial<Pick<UserProfile, 'username' | 'displayName' | 'bio' | 'academicTitle' | 'avatarUrl' | 'avatarEmoji'>>
   ): Promise<UserProfile> => {
-    if (!user) throw new Error('Cannot update profile without signing in');
+    if (!user) {
+      // Allow scholar profile persistence in localStorage for guest/offline explorers
+      const guestProf: UserProfile = {
+        uid: profile?.uid || 'scholar_local_' + Math.random().toString(36).substring(2, 9),
+        username: data.username || profile?.username || 'scholar',
+        displayName: data.displayName || profile?.displayName || 'Natural Philosopher',
+        academicTitle: data.academicTitle || profile?.academicTitle || 'Mathematical Scholar',
+        bio: data.bio !== undefined ? data.bio : (profile?.bio || ''),
+        avatarUrl: data.avatarUrl !== undefined ? data.avatarUrl : (profile?.avatarUrl || ''),
+        avatarEmoji: data.avatarEmoji || profile?.avatarEmoji || '📐',
+        createdAt: profile?.createdAt || new Date(),
+        updatedAt: new Date(),
+      };
+      localStorage.setItem('principia_scholar_profile', JSON.stringify(guestProf));
+      setProfile(guestProf);
+      return guestProf;
+    }
 
     // Optimistically update local profile state for instantaneous feedback
     const previous = profile;
@@ -106,6 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const updated = await updateProfileInFirestore(user.uid, data);
+      localStorage.setItem('principia_scholar_profile', JSON.stringify(updated));
       setProfile(updated);
       return updated;
     } catch (err) {

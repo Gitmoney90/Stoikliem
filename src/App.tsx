@@ -594,6 +594,7 @@ export default function App() {
         onOpenTable={() => setIsTableOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenShareSubmission={() => setIsShareSubmissionOpen(true)}
+        onOpenExport={() => setIsExportOpen(true)}
         onOpenGallery={() => setIsGalleryOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenP2PRoom={() => setIsP2PRoomOpen(true)}

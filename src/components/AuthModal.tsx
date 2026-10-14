@@ -54,9 +54,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [bio, setBio] = useState('');
   const [avatarEmoji, setAvatarEmoji] = useState('📐');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [driveUrlInput, setDriveUrlInput] = useState('');
 
   // Sync profile data to edit inputs
   useEffect(() => {
+    if (!isOpen) return;
     if (profile) {
       setUsername(profile.username || '');
       setDisplayName(profile.displayName || user?.displayName || '');
@@ -73,8 +75,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setAvatarUrl(user.photoURL || '');
     }
   }, [profile, user, isOpen]);
-
-  if (!isOpen) return null;
 
   const handleSignIn = async () => {
     setLoading(true);
@@ -135,13 +135,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } catch (err: any) {
       const msg = err?.message || 'Failed to update profile in database.';
       setError(msg);
-      window.alert(`Profile Update Error: ${msg}`);
     } finally {
       setSavingProfile(false);
     }
   };
-
-  const [driveUrlInput, setDriveUrlInput] = useState('');
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -242,6 +239,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     reader.readAsText(file);
   };
 
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div
@@ -273,13 +272,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   color: theme.textPrimary,
                 }}
               >
-                {user ? 'Scholar Dossier & Profile' : 'Sign In to Principia Graphica'}
+                {user || profile ? 'Scholar Dossier & Profile' : 'Scholar Profile & Cloud Sign In'}
               </h2>
-              {user && (
-                <p className="text-2xs" style={{ color: theme.textSecondary }}>
-                  Customizable academic identity, handle, and cloud submissions
-                </p>
-              )}
+              <p className="text-2xs" style={{ color: theme.textSecondary }}>
+                {user
+                  ? 'Customizable academic identity, handle, and cloud submissions'
+                  : 'Customize your local scholar dossier or sign in to sync with Google'}
+              </p>
             </div>
           </div>
           <button
@@ -293,7 +292,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Content */}
         <div className="p-6 space-y-5 text-xs font-sans overflow-y-auto">
-          {user ? (
+          {user || profile || isEditing ? (
             <div className="space-y-5">
               {/* Profile Card / Header View */}
               <div
@@ -366,7 +365,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </div>
 
                       <div className="text-2xs font-mono opacity-60" style={{ color: theme.textSecondary }}>
-                        {user.email}
+                        {user?.email || 'Local Scholar (Offline)'}
                       </div>
                     </div>
                   </div>
@@ -687,47 +686,76 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </form>
               ) : null}
 
-              {/* Account Actions */}
-              <div className="pt-2 border-t flex items-center justify-between" style={{ borderColor: theme.border }}>
-                <div className="text-2xs" style={{ color: theme.textSecondary }}>
-                  Authenticated via Google Cloud
-                </div>
+              {/* Account / Cloud Sync Actions */}
+              <div className="pt-3 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ borderColor: theme.border }}>
+                {user ? (
+                  <>
+                    <div className="text-2xs font-mono" style={{ color: theme.textSecondary }}>
+                      ✓ Authenticated: {user.email}
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  disabled={loading}
-                  className="px-3 py-1.5 rounded-lg border text-xs font-semibold hover:bg-rose-500/10 text-rose-600 transition-colors flex items-center gap-1.5"
-                  style={{ borderColor: theme.border }}
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Sign Out</span>
-                </button>
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      disabled={loading}
+                      className="px-3 py-1.5 rounded-lg border text-xs font-semibold hover:bg-rose-500/10 text-rose-600 transition-colors flex items-center justify-center gap-1.5 min-h-[38px] active:scale-95"
+                      style={{ borderColor: theme.border }}
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-2xs" style={{ color: theme.textSecondary }}>
+                      Offline Scholar Mode (Saved in Local Storage)
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSignIn}
+                      disabled={loading}
+                      className="px-3 py-1.5 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 shadow-xs hover:opacity-90 transition-all min-h-[38px] active:scale-95"
+                      style={{
+                        backgroundColor: theme.textPrimary,
+                        color: theme.bgCanvas,
+                      }}
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                      </svg>
+                      <span>{loading ? 'Connecting...' : 'Sign In with Google'}</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ) : (
             <div className="space-y-4">
               <p className="text-xs leading-relaxed" style={{ color: theme.textSecondary }}>
-                Sign in to establish your personal scholar profile, customize your unique username, and publish mathematical treatises to the global archive.
+                Sign in to sync your mathematical treatises to the cloud archive, or set up a local scholar dossier directly on your device.
               </p>
 
               <div className="space-y-2 py-1">
                 <div className="flex items-start gap-2.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <span style={{ color: theme.textPrimary }}>
-                    Create and edit your customizable scholar username and bio
+                    Create and edit your customizable scholar username, photo, and bio
                   </span>
                 </div>
                 <div className="flex items-start gap-2.5">
-                  <BookOpen className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <HardDrive className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <span style={{ color: theme.textPrimary }}>
-                    Save and manage personal mathematical treatises across devices
+                    Upload portrait from local storage or Google Drive link
                   </span>
                 </div>
                 <div className="flex items-start gap-2.5">
                   <Sparkles className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
                   <span style={{ color: theme.textPrimary }}>
-                    Publish unique share links attributed directly to your handle
+                    Export or import entire JSON profile dossiers at any time
                   </span>
                 </div>
               </div>
@@ -738,37 +766,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={handleSignIn}
-                disabled={loading}
-                className="w-full py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 font-semibold shadow-xs hover:opacity-90 transition-all active:scale-98"
-                style={{
-                  backgroundColor: theme.textPrimary,
-                  color: theme.bgCanvas,
-                }}
-              >
-                {/* Google "G" Logo */}
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                  />
-                </svg>
-                <span>{loading ? 'Connecting...' : 'Sign In with Google'}</span>
-              </button>
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSignIn}
+                  disabled={loading}
+                  className="w-full py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 font-semibold shadow-xs hover:opacity-90 transition-all min-h-[44px] active:scale-98"
+                  style={{
+                    backgroundColor: theme.textPrimary,
+                    color: theme.bgCanvas,
+                  }}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span>{loading ? 'Connecting...' : 'Sign In with Google Cloud'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(true);
+                    setUsername(username || 'scholar');
+                    setDisplayName(displayName || 'Natural Philosopher');
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-medium border hover:bg-black/5 dark:hover:bg-white/5 transition-all min-h-[44px] active:scale-98"
+                  style={{
+                    borderColor: theme.border,
+                    color: theme.textPrimary,
+                  }}
+                >
+                  <Edit3 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span>Customize Local Scholar Profile (Offline)</span>
+                </button>
+              </div>
             </div>
           )}
         </div>

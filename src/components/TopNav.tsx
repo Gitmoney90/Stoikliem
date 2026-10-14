@@ -16,6 +16,7 @@ import {
   ScrollText,
   Moon,
   Sun,
+  Download,
 } from 'lucide-react';
 
 interface TopNavProps {
@@ -28,6 +29,7 @@ interface TopNavProps {
   onOpenTable: () => void;
   onOpenSettings: () => void;
   onOpenShareSubmission: () => void;
+  onOpenExport?: () => void;
   onOpenGallery: () => void;
   onOpenAuth: () => void;
   onOpenP2PRoom: () => void;
@@ -46,6 +48,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   onOpenTable,
   onOpenSettings,
   onOpenShareSubmission,
+  onOpenExport,
   onOpenGallery,
   onOpenAuth,
   onOpenP2PRoom,
@@ -229,6 +232,23 @@ export const TopNav: React.FC<TopNavProps> = ({
             </>
           )}
         </button>
+
+        {/* Export / Figures Modal Button */}
+        {onOpenExport && (
+          <button
+            onClick={onOpenExport}
+            title="Export high-res PNG, transparent raster, SVG vector & LaTeX figures"
+            className="p-2 sm:px-2.5 sm:py-1.5 rounded-lg border text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-all flex items-center gap-1.5 min-h-[40px] sm:min-h-[38px] active:scale-95"
+            style={{
+              borderColor: theme.border,
+              color: theme.textPrimary,
+            }}
+            aria-label="Export Figures"
+          >
+            <Download className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+            <span className="hidden md:inline">Export</span>
+          </button>
+        )}
 
         {/* Primary CTA: Share Submission */}
         <button

@@ -36,6 +36,8 @@ import {
   HelpCircle,
   Pin,
   ExternalLink,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 
 interface AnalysisPanelProps {
@@ -70,6 +72,7 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
   onPlotPoint,
 }) => {
   const [activeTab, setActiveTab] = useState<CASTab>('symbolic');
+  const [isExpandedWidth, setIsExpandedWidth] = useState<boolean>(false);
 
   // Point evaluation & Riemann state
   const [evalX, setEvalX] = useState<number>(1.0);
@@ -205,7 +208,9 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
 
   return (
     <div
-      className="fixed sm:absolute inset-x-2 sm:inset-x-auto sm:right-4 top-14 sm:top-3 w-auto sm:w-[480px] rounded-2xl border shadow-2xl z-40 overflow-hidden flex flex-col max-h-[calc(100dvh-120px)] sm:max-h-[calc(100%-24px)] animate-in fade-in slide-in-from-top-2 duration-200"
+      className={`fixed sm:absolute inset-x-2 sm:inset-x-auto sm:right-4 top-14 sm:top-3 w-auto ${
+        isExpandedWidth ? 'sm:w-[720px]' : 'sm:w-[480px]'
+      } rounded-2xl border shadow-2xl z-40 overflow-hidden flex flex-col max-h-[calc(100dvh-120px)] sm:max-h-[calc(100%-24px)] transition-all duration-200 animate-in fade-in slide-in-from-top-2`}
       style={{
         backgroundColor: theme.bgCard,
         borderColor: theme.border,
@@ -236,14 +241,29 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
             </p>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="min-w-[40px] min-h-[40px] flex items-center justify-center p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-          style={{ color: theme.textSecondary }}
-          aria-label="Close CAS Studio"
-        >
-          <X className="w-4 h-4" />
-        </button>
+
+        <div className="flex items-center gap-1">
+          {/* Expand / Minimize Drawer Width Toggle on Desktop */}
+          <button
+            type="button"
+            onClick={() => setIsExpandedWidth(!isExpandedWidth)}
+            title={isExpandedWidth ? 'Narrow Studio Drawer (480px)' : 'Expand Studio Drawer for Multi-Column View (720px)'}
+            className="hidden sm:flex min-w-[36px] min-h-[36px] items-center justify-center p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+            style={{ color: theme.textSecondary }}
+            aria-label="Toggle Drawer Width"
+          >
+            {isExpandedWidth ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
+
+          <button
+            onClick={onClose}
+            className="min-w-[40px] min-h-[40px] flex items-center justify-center p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+            style={{ color: theme.textSecondary }}
+            aria-label="Close CAS Studio"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Mode Navigation Tabs */}
