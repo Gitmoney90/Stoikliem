@@ -85,8 +85,6 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
   const [algebraExpr, setAlgebraExpr] = useState<string>('x^3 - 6*x^2 + 11*x - 6');
   const [algebraMode, setAlgebraMode] = useState<'factor' | 'expand' | 'simplify' | 'partfrac'>('factor');
 
-  if (!isOpen) return null;
-
   // Filter explicit visible functions
   const explExprs = expressions.filter((e) => {
     const p = parsedEquations.get(e.id);
@@ -101,41 +99,41 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
 
   // Extract raw function body for CAS (e.g. from "y = x^2 - 4" -> "x^2 - 4")
   const rawFunctionBody = useMemo(() => {
-    if (!currentExpr) return '';
+    if (!isOpen || !currentExpr) return '';
     return currentExpr.rawText.replace(/^(?:y|f\s*\(\s*x\s*\))\s*=\s*/i, '').trim();
-  }, [currentExpr]);
+  }, [isOpen, currentExpr]);
 
   // 1. Symbolic Calculus Computation
   const symbolicD1 = useMemo(() => {
-    if (!rawFunctionBody) return null;
+    if (!isOpen || !rawFunctionBody) return null;
     return symbolicDifferentiate(rawFunctionBody, 'x', 1);
-  }, [rawFunctionBody]);
+  }, [isOpen, rawFunctionBody]);
 
   const symbolicD2 = useMemo(() => {
-    if (!rawFunctionBody) return null;
+    if (!isOpen || !rawFunctionBody) return null;
     return symbolicDifferentiate(rawFunctionBody, 'x', 2);
-  }, [rawFunctionBody]);
+  }, [isOpen, rawFunctionBody]);
 
   const symbolicInt = useMemo(() => {
-    if (!rawFunctionBody) return null;
+    if (!isOpen || !rawFunctionBody) return null;
     return symbolicIntegrate(rawFunctionBody, 'x');
-  }, [rawFunctionBody]);
+  }, [isOpen, rawFunctionBody]);
 
   // 2. Exact Algebraic Key Points for Active Curve
   const algebraicKeyPoints = useMemo(() => {
-    if (!rawFunctionBody) return { roots: [], criticalPoints: [], inflectionPoints: [] };
+    if (!isOpen || !rawFunctionBody) return { roots: [], criticalPoints: [], inflectionPoints: [] };
     return findAlgebraicKeyPoints(rawFunctionBody, 'x');
-  }, [rawFunctionBody]);
+  }, [isOpen, rawFunctionBody]);
 
   // 3. Arbitrary Equation Solver Result
   const solverResult = useMemo(() => {
-    if (!solverEquation.trim()) return null;
+    if (!isOpen || !solverEquation.trim()) return null;
     return symbolicSolve(solverEquation, solverVariable);
-  }, [solverEquation, solverVariable]);
+  }, [isOpen, solverEquation, solverVariable]);
 
   // 4. Polynomial / Expression Manipulation Result
   const algebraResult = useMemo(() => {
-    if (!algebraExpr.trim()) return null;
+    if (!isOpen || !algebraExpr.trim()) return null;
     switch (algebraMode) {
       case 'simplify':
         return symbolicSimplify(algebraExpr);
@@ -146,7 +144,7 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
       case 'partfrac':
         return symbolicPartFrac(algebraExpr, 'x');
     }
-  }, [algebraExpr, algebraMode]);
+  }, [isOpen, algebraExpr, algebraMode]);
 
   // Numerical evaluations
   const yVal = fn ? fn(evalX) : NaN;
@@ -182,9 +180,12 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
     }
   };
 
+  // Safe early exit AFTER all hooks execute in uniform order
+  if (!isOpen) return null;
+
   return (
     <div
-      className="fixed sm:absolute inset-x-2 sm:inset-x-auto sm:right-4 top-14 sm:top-16 w-auto sm:w-[480px] rounded-2xl border shadow-2xl z-20 overflow-hidden flex flex-col max-h-[80dvh] sm:max-h-[88vh] animate-in fade-in slide-in-from-top-2 duration-200"
+      className="fixed sm:absolute inset-x-2 sm:inset-x-auto sm:right-4 top-14 sm:top-3 w-auto sm:w-[480px] rounded-2xl border shadow-2xl z-40 overflow-hidden flex flex-col max-h-[calc(100dvh-120px)] sm:max-h-[calc(100%-24px)] animate-in fade-in slide-in-from-top-2 duration-200"
       style={{
         backgroundColor: theme.bgCard,
         borderColor: theme.border,

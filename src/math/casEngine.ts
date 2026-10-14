@@ -314,78 +314,83 @@ export function findAlgebraicKeyPoints(
   criticalPoints: SymbolicPoint[];
   inflectionPoints: SymbolicPoint[];
 } {
-  const clean = normalizeCASInput(expression);
-  if (!clean) return { roots: [], criticalPoints: [], inflectionPoints: [] };
+  try {
+    const clean = normalizeCASInput(expression);
+    if (!clean) return { roots: [], criticalPoints: [], inflectionPoints: [] };
 
-  const evalOriginal = buildPlottableFunction(clean, variable);
+    const evalOriginal = buildPlottableFunction(clean, variable);
 
-  // 1. Exact Roots: solve(f(x) = 0)
-  const rootsSolve = symbolicSolve(clean, variable);
-  const roots: SymbolicPoint[] = [];
-  rootsSolve.numericSolutions.forEach((sol) => {
-    roots.push({
-      xExact: sol.exact,
-      xLatex: sol.latex,
-      xNum: sol.numeric,
-      yExact: '0',
-      yLatex: '0',
-      yNum: 0,
-      label: `Root (${variable} = ${sol.exact})`,
-      type: 'root',
-    });
-  });
-
-  // 2. Exact Critical Points: solve(f'(x) = 0)
-  const diff1 = symbolicDifferentiate(clean, variable, 1);
-  const diff2 = symbolicDifferentiate(clean, variable, 2);
-  const evalD2 = diff2.success ? buildPlottableFunction(diff2.rawText, variable) : null;
-
-  const criticalPoints: SymbolicPoint[] = [];
-  if (diff1.success) {
-    const cpSolve = symbolicSolve(diff1.rawText, variable);
-    cpSolve.numericSolutions.forEach((sol) => {
-      const yVal = evalOriginal(sol.numeric);
-      let classification: 'minimum' | 'maximum' | 'saddle' | 'critical' = 'critical';
-      if (evalD2) {
-        const d2Val = evalD2(sol.numeric);
-        if (d2Val > 1e-7) classification = 'minimum';
-        else if (d2Val < -1e-7) classification = 'maximum';
-        else if (Math.abs(d2Val) <= 1e-7) classification = 'saddle';
-      }
-
-      criticalPoints.push({
+    // 1. Exact Roots: solve(f(x) = 0)
+    const rootsSolve = symbolicSolve(clean, variable);
+    const roots: SymbolicPoint[] = [];
+    rootsSolve.numericSolutions.forEach((sol) => {
+      roots.push({
         xExact: sol.exact,
         xLatex: sol.latex,
         xNum: sol.numeric,
-        yExact: isNaN(yVal) ? 'NaN' : yVal.toFixed(4),
-        yLatex: isNaN(yVal) ? 'NaN' : yVal.toFixed(4),
-        yNum: yVal,
-        label: `${classification.toUpperCase()} (${variable} = ${sol.exact})`,
-        type: classification,
+        yExact: '0',
+        yLatex: '0',
+        yNum: 0,
+        label: `Root (${variable} = ${sol.exact})`,
+        type: 'root',
       });
     });
-  }
 
-  // 3. Exact Inflection Points: solve(f''(x) = 0)
-  const inflectionPoints: SymbolicPoint[] = [];
-  if (diff2.success) {
-    const ipSolve = symbolicSolve(diff2.rawText, variable);
-    ipSolve.numericSolutions.forEach((sol) => {
-      const yVal = evalOriginal(sol.numeric);
-      inflectionPoints.push({
-        xExact: sol.exact,
-        xLatex: sol.latex,
-        xNum: sol.numeric,
-        yExact: isNaN(yVal) ? 'NaN' : yVal.toFixed(4),
-        yLatex: isNaN(yVal) ? 'NaN' : yVal.toFixed(4),
-        yNum: yVal,
-        label: `Inflection Point (${variable} = ${sol.exact})`,
-        type: 'inflection',
+    // 2. Exact Critical Points: solve(f'(x) = 0)
+    const diff1 = symbolicDifferentiate(clean, variable, 1);
+    const diff2 = symbolicDifferentiate(clean, variable, 2);
+    const evalD2 = diff2.success ? buildPlottableFunction(diff2.rawText, variable) : null;
+
+    const criticalPoints: SymbolicPoint[] = [];
+    if (diff1.success) {
+      const cpSolve = symbolicSolve(diff1.rawText, variable);
+      cpSolve.numericSolutions.forEach((sol) => {
+        const yVal = evalOriginal(sol.numeric);
+        let classification: 'minimum' | 'maximum' | 'saddle' | 'critical' = 'critical';
+        if (evalD2) {
+          const d2Val = evalD2(sol.numeric);
+          if (d2Val > 1e-7) classification = 'minimum';
+          else if (d2Val < -1e-7) classification = 'maximum';
+          else if (Math.abs(d2Val) <= 1e-7) classification = 'saddle';
+        }
+
+        criticalPoints.push({
+          xExact: sol.exact,
+          xLatex: sol.latex,
+          xNum: sol.numeric,
+          yExact: isNaN(yVal) ? 'NaN' : yVal.toFixed(4),
+          yLatex: isNaN(yVal) ? 'NaN' : yVal.toFixed(4),
+          yNum: yVal,
+          label: `${classification.toUpperCase()} (${variable} = ${sol.exact})`,
+          type: classification,
+        });
       });
-    });
-  }
+    }
 
-  return { roots, criticalPoints, inflectionPoints };
+    // 3. Exact Inflection Points: solve(f''(x) = 0)
+    const inflectionPoints: SymbolicPoint[] = [];
+    if (diff2.success) {
+      const ipSolve = symbolicSolve(diff2.rawText, variable);
+      ipSolve.numericSolutions.forEach((sol) => {
+        const yVal = evalOriginal(sol.numeric);
+        inflectionPoints.push({
+          xExact: sol.exact,
+          xLatex: sol.latex,
+          xNum: sol.numeric,
+          yExact: isNaN(yVal) ? 'NaN' : yVal.toFixed(4),
+          yLatex: isNaN(yVal) ? 'NaN' : yVal.toFixed(4),
+          yNum: yVal,
+          label: `Inflection Point (${variable} = ${sol.exact})`,
+          type: 'inflection',
+        });
+      });
+    }
+
+    return { roots, criticalPoints, inflectionPoints };
+  } catch (err) {
+    console.warn('findAlgebraicKeyPoints non-fatal error:', err);
+    return { roots: [], criticalPoints: [], inflectionPoints: [] };
+  }
 }
 
 /**
