@@ -27,7 +27,7 @@
         },
         "avatarUrl": {
           "type": "string",
-          "maxLength": 1000
+          "maxLength": 65000
         },
         "avatarEmoji": {
           "type": "string",
@@ -197,19 +197,19 @@
         },
         "hostOffer": {
           "type": "string",
-          "maxLength": 15000
+          "maxLength": 65000
         },
         "guestAnswer": {
           "type": "string",
-          "maxLength": 15000
+          "maxLength": 65000
         },
         "graphSyncJson": {
           "type": "string",
-          "maxLength": 25000
+          "maxLength": 100000
         },
         "chatMessagesJson": {
           "type": "string",
-          "maxLength": 25000
+          "maxLength": 100000
         },
         "createdAt": {
           "type": "string",

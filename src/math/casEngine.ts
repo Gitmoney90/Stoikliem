@@ -486,6 +486,128 @@ export function symbolicPartFrac(expression: string, variable: string = 'x'): Sy
 }
 
 /**
+ * Computes Taylor Polynomial Approximation
+ */
+export function symbolicTaylor(
+  expression: string,
+  variable: string = 'x',
+  center: number = 0,
+  order: number = 4
+): SymbolicResult {
+  try {
+    const clean = normalizeCASInput(expression);
+    if (!clean) return { rawText: '', latex: '', success: false, error: 'Empty expression' };
+
+    let resultNode: any;
+    try {
+      resultNode = cas(`taylor(${clean}, ${variable}, ${center}, ${order})`);
+    } catch {
+      // Fallback manual differentiation sum
+      let sumStr = '';
+      let currentExpr = clean;
+      let fact = 1;
+      for (let k = 0; k <= order; k++) {
+        if (k > 0) {
+          fact *= k;
+          currentExpr = cas(`diff(${currentExpr}, ${variable})`).toString();
+        }
+        const valAtCenter = cas(currentExpr).sub(variable, String(center)).evaluate().toString();
+        if (valAtCenter !== '0') {
+          const term =
+            k === 0
+              ? valAtCenter
+              : `((${valAtCenter}) / ${fact}) * (${variable} - (${center}))^${k}`;
+          sumStr = sumStr ? `${sumStr} + ${term}` : term;
+        }
+      }
+      resultNode = cas(sumStr || '0');
+    }
+
+    const textResult = resultNode.toString();
+    const latexResult = safeToTeX(resultNode);
+    return {
+      rawText: textResult,
+      latex: latexResult,
+      success: true,
+      plottableFn: buildPlottableFunction(textResult, variable),
+    };
+  } catch (err: any) {
+    return {
+      rawText: '',
+      latex: '',
+      success: false,
+      error: err?.message || 'Taylor series computation failed',
+    };
+  }
+}
+
+export interface DefiniteIntegralSteps {
+  antiderivative: string;
+  antiderivativeLatex: string;
+  fAtUpper: string;
+  fAtUpperLatex: string;
+  fAtLower: string;
+  fAtLowerLatex: string;
+  resultExact: string;
+  resultLatex: string;
+  numericVal: number;
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Computes Definite Integral with Fundamental Theorem of Calculus steps [F(b) - F(a)]
+ */
+export function computeDefiniteIntegralWithSteps(
+  expression: string,
+  variable: string = 'x',
+  a: number = 0,
+  b: number = 1
+): DefiniteIntegralSteps {
+  try {
+    const clean = normalizeCASInput(expression);
+    if (!clean) throw new Error('Empty expression');
+
+    const anti = cas(`integrate(${clean}, ${variable})`);
+    const antiStr = anti.toString();
+    const antiLatex = safeToTeX(anti);
+
+    const atB = cas(antiStr).sub(variable, String(b)).evaluate();
+    const atA = cas(antiStr).sub(variable, String(a)).evaluate();
+
+    const diff = cas(`(${atB.toString()}) - (${atA.toString()})`);
+    const num = Number((diff.evaluate() as any).text('decimals'));
+
+    return {
+      antiderivative: antiStr,
+      antiderivativeLatex: antiLatex,
+      fAtUpper: atB.toString(),
+      fAtUpperLatex: safeToTeX(atB),
+      fAtLower: atA.toString(),
+      fAtLowerLatex: safeToTeX(atA),
+      resultExact: diff.toString(),
+      resultLatex: safeToTeX(diff),
+      numericVal: isNaN(num) ? NaN : num,
+      success: true,
+    };
+  } catch (err: any) {
+    return {
+      antiderivative: '',
+      antiderivativeLatex: '',
+      fAtUpper: '',
+      fAtUpperLatex: '',
+      fAtLower: '',
+      fAtLowerLatex: '',
+      resultExact: '',
+      resultLatex: '',
+      numericVal: NaN,
+      success: false,
+      error: err?.message || 'Definite integral computation failed',
+    };
+  }
+}
+
+/**
  * Splits a string by delimiter at top level of parentheses/brackets
  */
 function splitTopLevel(str: string, delimiter: string): string[] {

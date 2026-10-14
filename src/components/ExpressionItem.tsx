@@ -31,6 +31,8 @@ interface ExpressionItemProps {
   onUpdateExpression: (updated: Partial<GraphExpression>) => void;
   onFocusInput: () => void;
   onOpenCAS?: () => void;
+  existingSliderVars?: Set<string>;
+  onAddSlider?: (variableName: string) => void;
 }
 
 export const ExpressionItem: React.FC<ExpressionItemProps> = ({
@@ -47,6 +49,8 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
   onUpdateExpression,
   onFocusInput,
   onOpenCAS,
+  existingSliderVars,
+  onAddSlider,
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -56,6 +60,32 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
   const isParametric = expression.type === 'parametric' || parsedInfo?.type === 'parametric';
   const isPolar = expression.type === 'polar' || parsedInfo?.type === 'polar';
   const isExplicit = expression.type === 'explicit' || parsedInfo?.type === 'explicit';
+
+  // Smart parameter detector: detects variables like a, b, c, t needing sliders
+  const unboundVariables = React.useMemo(() => {
+    if (isSlider || !expression.rawText) return [];
+    const reserved = new Set([
+      'sin', 'cos', 'tan', 'sec', 'csc', 'cot', 'sinh', 'cosh', 'tanh',
+      'asin', 'acos', 'atan', 'exp', 'ln', 'log', 'sqrt', 'abs', 'floor',
+      'ceil', 'round', 'sign', 'min', 'max', 'pi', 'e', 'theta', 'phi', 'x', 'y', 'r'
+    ]);
+    let textToAnalyze = expression.rawText;
+    if (textToAnalyze.includes('=')) {
+      const parts = textToAnalyze.split('=');
+      if (/^(?:y|r|f\s*\(\s*x\s*\))\s*$/i.test(parts[0])) {
+        textToAnalyze = parts.slice(1).join('=');
+      }
+    }
+    const matches = textToAnalyze.match(/\b[a-zA-Z_][a-zA-Z0-9_]*\b/g) || [];
+    const found = new Set<string>();
+    for (const m of matches) {
+      const lower = m.toLowerCase();
+      if (!reserved.has(lower) && (!existingSliderVars || !existingSliderVars.has(m))) {
+        found.add(m);
+      }
+    }
+    return Array.from(found);
+  }, [expression.rawText, isSlider, existingSliderVars]);
 
   // Toggle animation for sliders
   const handleTogglePlay = () => {
@@ -253,6 +283,43 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
           )}
         </div>
       </div>
+
+      {/* Smart Parameter Sliders Prompt */}
+      {unboundVariables.length > 0 && onAddSlider && (
+        <div className="mt-2 pt-1.5 border-t flex items-center gap-1.5 flex-wrap text-2xs select-none" style={{ borderColor: theme.border }}>
+          <span className="opacity-70 font-sans text-3xs">Add slider:</span>
+          {unboundVariables.map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddSlider(v);
+              }}
+              title={`Add interactive slider widget for constant '${v}' to animate curve dynamically`}
+              className="px-2 py-0.5 rounded border font-mono font-bold flex items-center gap-1 hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all text-amber-700 dark:text-amber-400 bg-amber-500/10"
+              style={{ borderColor: theme.border }}
+            >
+              <Sliders className="w-2.5 h-2.5" />
+              <span>{v}</span>
+            </button>
+          ))}
+          {unboundVariables.length > 1 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                unboundVariables.forEach((v) => onAddSlider(v));
+              }}
+              title="Add sliders for all parameters"
+              className="px-2 py-0.5 rounded border text-3xs hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all"
+              style={{ borderColor: theme.border, color: theme.textSecondary }}
+            >
+              all
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Syntax Error Hint */}
       {expression.error && (

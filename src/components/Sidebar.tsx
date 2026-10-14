@@ -165,24 +165,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Expression Cards List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
-        {expressions.map((expr) => (
-          <ExpressionItem
-            key={expr.id}
-            expression={expr}
-            parsedInfo={parsedEquations.get(expr.id)}
-            isActive={expr.id === activeExpressionId}
-            theme={theme}
-            onSelect={() => onSelectExpression(expr.id)}
-            onChangeText={(text) => onUpdateText(expr.id, text)}
-            onToggleVisible={() => onToggleVisible(expr.id)}
-            onChangeColor={(col) => onChangeColor(expr.id, col)}
-            onDelete={() => onDeleteExpression(expr.id)}
-            onDuplicate={() => onDuplicateExpression(expr.id)}
-            onUpdateExpression={(data) => onUpdateExpressionData(expr.id, data)}
-            onFocusInput={() => onSelectExpression(expr.id)}
-            onOpenCAS={() => onOpenCAS?.(expr.id)}
-          />
-        ))}
+        {(() => {
+          const existingSliderVars = new Set(
+            expressions
+              .filter((e) => e.type === 'slider' || e.variableName)
+              .map((e) => e.variableName || '')
+          );
+
+          const handleAddSliderForVar = (v: string) => {
+            if (onAddExpressionWithText) {
+              onAddExpressionWithText(`${v} = 1`);
+            } else {
+              onAddExpression('slider');
+            }
+          };
+
+          return expressions.map((expr) => (
+            <ExpressionItem
+              key={expr.id}
+              expression={expr}
+              parsedInfo={parsedEquations.get(expr.id)}
+              isActive={expr.id === activeExpressionId}
+              theme={theme}
+              onSelect={() => onSelectExpression(expr.id)}
+              onChangeText={(text) => onUpdateText(expr.id, text)}
+              onToggleVisible={() => onToggleVisible(expr.id)}
+              onChangeColor={(col) => onChangeColor(expr.id, col)}
+              onDelete={() => onDeleteExpression(expr.id)}
+              onDuplicate={() => onDuplicateExpression(expr.id)}
+              onUpdateExpression={(data) => onUpdateExpressionData(expr.id, data)}
+              onFocusInput={() => onSelectExpression(expr.id)}
+              onOpenCAS={() => onOpenCAS?.(expr.id)}
+              existingSliderVars={existingSliderVars}
+              onAddSlider={handleAddSliderForVar}
+            />
+          ));
+        })()}
 
         {expressions.length === 0 && (
           <div

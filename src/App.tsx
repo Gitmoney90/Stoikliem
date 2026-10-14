@@ -586,6 +586,8 @@ export default function App() {
       {/* Top Bar Navigation (Strict 3-Zone Contract with Auth, Share Submission, and P2P Room) */}
       <TopNav
         theme={theme}
+        themeId={themeId}
+        onToggleTheme={() => setThemeId(themeId === 'slate' || themeId === 'engraving' ? 'parchment' : 'slate')}
         onOpenPresets={() => setIsPresetsOpen(true)}
         onToggleAnalysis={() => setIsAnalysisOpen(!isAnalysisOpen)}
         isAnalysisOpen={isAnalysisOpen}

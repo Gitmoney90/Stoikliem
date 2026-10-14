@@ -118,6 +118,9 @@ export const P2PRoomModal: React.FC<P2PRoomModalProps> = ({
 
   const isConnected = connectionState === 'connected';
 
+  const localScholarIdRef = useRef<string>(`scholar_${Math.random().toString(36).substring(2, 9)}`);
+  const currentUserId = user?.uid || localScholarIdRef.current;
+
   // Cleanup on unmount or close
   useEffect(() => {
     return () => {
@@ -132,10 +135,16 @@ export const P2PRoomModal: React.FC<P2PRoomModalProps> = ({
   useEffect(() => {
     p2pEngine.onPacketReceived = (packet: P2PDataPacket) => {
       if (packet.type === 'chat') {
-        setChatMessages((prev) => [
-          ...prev,
-          { ...packet.message, sender: 'peer' },
-        ]);
+        setChatMessages((prev) => {
+          if (prev.some((m) => m.id === packet.message.id)) return prev;
+          return [
+            ...prev,
+            {
+              ...packet.message,
+              sender: packet.message.senderId === currentUserId ? 'self' : 'peer',
+            },
+          ];
+        });
       } else if (packet.type === 'file') {
         setSharedFiles((prev) => [
           ...prev,
@@ -214,7 +223,12 @@ export const P2PRoomModal: React.FC<P2PRoomModalProps> = ({
           if (roomData.chatMessagesJson) {
             try {
               const parsedMsgs: ChatMessage[] = JSON.parse(roomData.chatMessagesJson);
-              setChatMessages(parsedMsgs);
+              setChatMessages(
+                parsedMsgs.map((m) => ({
+                  ...m,
+                  sender: m.senderId === currentUserId ? 'self' : 'peer',
+                }))
+              );
             } catch {}
           }
         },
@@ -272,7 +286,12 @@ export const P2PRoomModal: React.FC<P2PRoomModalProps> = ({
         if (updatedRoom.chatMessagesJson) {
           try {
             const parsedMsgs: ChatMessage[] = JSON.parse(updatedRoom.chatMessagesJson);
-            setChatMessages(parsedMsgs);
+            setChatMessages(
+              parsedMsgs.map((m) => ({
+                ...m,
+                sender: m.senderId === currentUserId ? 'self' : 'peer',
+              }))
+            );
           } catch {}
         }
       });
@@ -340,6 +359,7 @@ export const P2PRoomModal: React.FC<P2PRoomModalProps> = ({
 
     const newMsg: ChatMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      senderId: currentUserId,
       sender: 'self',
       senderName: profile?.displayName || user?.displayName || 'Peer Scholar',
       text: messageInput.trim(),
@@ -347,7 +367,7 @@ export const P2PRoomModal: React.FC<P2PRoomModalProps> = ({
     };
 
     // 1. Send via WebRTC DataChannel
-    const sentWebRTC = p2pEngine.sendPacket({ type: 'chat', message: newMsg });
+    p2pEngine.sendPacket({ type: 'chat', message: newMsg });
 
     // 2. Dual relay via Cloud Room for 100% delivery guarantee
     if (roomCode) {

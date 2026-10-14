@@ -1,5 +1,5 @@
 import React from 'react';
-import { ThemeConfig } from '../types/graph';
+import { ThemeConfig, ThemeId } from '../types/graph';
 import { useAuth } from '../context/AuthContext';
 import {
   Share2,
@@ -14,10 +14,14 @@ import {
   Network,
   Sparkles,
   ScrollText,
+  Moon,
+  Sun,
 } from 'lucide-react';
 
 interface TopNavProps {
   theme: ThemeConfig;
+  themeId?: ThemeId;
+  onToggleTheme?: () => void;
   onOpenPresets: () => void;
   onToggleAnalysis: () => void;
   isAnalysisOpen: boolean;
@@ -34,6 +38,8 @@ interface TopNavProps {
 
 export const TopNav: React.FC<TopNavProps> = ({
   theme,
+  themeId,
+  onToggleTheme,
   onOpenPresets,
   onToggleAnalysis,
   isAnalysisOpen,
@@ -153,6 +159,36 @@ export const TopNav: React.FC<TopNavProps> = ({
 
       {/* Zone 3: Actions & Account Affordance */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Dark Mode / Manuscript Toggle Button */}
+        {onToggleTheme && (
+          <button
+            onClick={onToggleTheme}
+            title={
+              themeId === 'slate' || themeId === 'engraving'
+                ? 'Switch to Parchment Manuscript (Light Mode)'
+                : 'Switch to Royal Slate Blackboard (Dark Mode)'
+            }
+            className="p-2 sm:px-2.5 sm:py-1.5 rounded-lg border text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-all flex items-center gap-1.5 min-h-[40px] sm:min-h-[38px] active:scale-95"
+            style={{
+              borderColor: theme.border,
+              color: theme.textPrimary,
+            }}
+            aria-label="Toggle Dark Mode"
+          >
+            {themeId === 'slate' || themeId === 'engraving' ? (
+              <>
+                <Sun className="w-4 h-4 text-amber-500" />
+                <span className="hidden lg:inline text-2xs">Parchment</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-4 h-4 text-indigo-500" />
+                <span className="hidden lg:inline text-2xs">Slate Dark</span>
+              </>
+            )}
+          </button>
+        )}
+
         {/* User Account / Profile Dossier */}
         <button
           onClick={onOpenAuth}

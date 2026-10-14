@@ -10,7 +10,21 @@ import {
   findExtremaInInterval,
   findIntersections,
 } from '../math/calculus';
-import { RotateCcw, ZoomIn, ZoomOut, Maximize2, Compass, Target, Camera, Check, Sparkles } from 'lucide-react';
+import {
+  RotateCcw,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Compass,
+  Target,
+  Camera,
+  Check,
+  Sparkles,
+  Activity,
+  ChevronLeft,
+  ChevronRight,
+  Sliders,
+} from 'lucide-react';
 
 interface GraphCanvasProps {
   viewport: Viewport;
@@ -512,6 +526,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
   const animFrameRef = useRef<number | null>(null);
   const [snapshotStatus, setSnapshotStatus] = useState<'copied' | 'downloaded' | null>(null);
+  const [isPresetsCollapsed, setIsPresetsCollapsed] = useState<boolean>(false);
+  const [isControlsCollapsed, setIsControlsCollapsed] = useState<boolean>(false);
+  const [isTraceModeActive, setIsTraceModeActive] = useState<boolean>(false);
 
   useEffect(() => {
     return () => {
@@ -678,86 +695,181 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         onWheel={handleWheel}
       />
 
-      {/* Floating Top Convenient Viewport Presets Strip */}
-      <div className="absolute top-3 left-3 sm:left-4 z-20 flex items-center gap-1 p-1 bg-stone-900/80 hover:bg-stone-900/90 backdrop-blur-md rounded-xl border border-stone-700/60 shadow-lg text-stone-300 text-3xs sm:text-2xs font-medium transition-all">
-        <button
-          onClick={handleRecenterOrigin}
-          title="Recenter Origin (0,0)"
-          className="px-2 py-1 rounded-lg hover:text-white hover:bg-stone-800 flex items-center gap-1 transition-colors active:scale-95"
-        >
-          <Target className="w-3 h-3 text-amber-500" />
-          <span className="hidden sm:inline">Origin (0,0)</span>
-        </button>
-        <button
-          onClick={handleResetViewport}
-          title="Default Window [-10, 10]"
-          className="px-2 py-1 rounded-lg hover:text-white hover:bg-stone-800 transition-colors active:scale-95"
-        >
-          [-10, 10]
-        </button>
-        <button
-          onClick={handleTrigViewport}
-          title="Trigonometric Window [-2π, 2π]"
-          className="px-2 py-1 rounded-lg hover:text-white hover:bg-stone-800 transition-colors active:scale-95 font-serif italic"
-        >
-          [-2π, 2π]
-        </button>
-        <button
-          onClick={handleUnitCircleViewport}
-          title="Unit Geometric Window [-2, 2]"
-          className="px-2 py-1 rounded-lg hover:text-white hover:bg-stone-800 transition-colors active:scale-95"
-        >
-          Unit [-2, 2]
-        </button>
+      {/* Floating Top Convenient Viewport Presets Strip (Collapsible & Auto-fading) */}
+      <div
+        className={`absolute top-3 left-3 sm:left-4 z-20 transition-all duration-200 ${
+          isDragging ? 'opacity-30 pointer-events-none' : 'opacity-95 hover:opacity-100'
+        }`}
+      >
+        {isPresetsCollapsed ? (
+          <button
+            onClick={() => setIsPresetsCollapsed(false)}
+            title="Expand Window Presets Toolbar"
+            className="px-2.5 py-1.5 bg-stone-900/85 hover:bg-stone-900 text-stone-300 hover:text-white backdrop-blur-md rounded-xl border border-stone-700/60 shadow-lg text-2xs font-medium flex items-center gap-1.5 transition-all active:scale-95"
+          >
+            <Target className="w-3.5 h-3.5 text-amber-500" />
+            <span className="font-mono text-3xs hidden xs:inline">Presets</span>
+            <ChevronRight className="w-3 h-3 opacity-60" />
+          </button>
+        ) : (
+          <div className="flex items-center gap-1 p-1 bg-stone-900/85 hover:bg-stone-900/95 backdrop-blur-md rounded-xl border border-stone-700/60 shadow-lg text-stone-300 text-3xs sm:text-2xs font-medium transition-all">
+            <button
+              onClick={handleRecenterOrigin}
+              title="Recenter Origin (0,0)"
+              className="px-2 py-1 rounded-lg hover:text-white hover:bg-stone-800 flex items-center gap-1 transition-colors active:scale-95"
+            >
+              <Target className="w-3 h-3 text-amber-500" />
+              <span className="hidden sm:inline">Origin (0,0)</span>
+            </button>
+            <button
+              onClick={handleResetViewport}
+              title="Default Window [-10, 10]"
+              className="px-2 py-1 rounded-lg hover:text-white hover:bg-stone-800 transition-colors active:scale-95"
+            >
+              [-10, 10]
+            </button>
+            <button
+              onClick={handleTrigViewport}
+              title="Trigonometric Window [-2π, 2π]"
+              className="px-2 py-1 rounded-lg hover:text-white hover:bg-stone-800 transition-colors active:scale-95 font-serif italic"
+            >
+              [-2π, 2π]
+            </button>
+            <button
+              onClick={handleUnitCircleViewport}
+              title="Unit Geometric Window [-2, 2]"
+              className="px-2 py-1 rounded-lg hover:text-white hover:bg-stone-800 transition-colors active:scale-95"
+            >
+              Unit [-2, 2]
+            </button>
+            <button
+              onClick={() => setIsPresetsCollapsed(true)}
+              title="Minimize Presets Toolbar"
+              className="p-1 rounded-lg hover:text-white hover:bg-stone-800 text-stone-500 transition-colors"
+            >
+              <ChevronLeft className="w-3 h-3" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Floating Canvas Navigation Toolbar */}
-      <div className="absolute right-3 sm:right-5 bottom-20 md:bottom-6 flex flex-col gap-1.5 p-1 bg-stone-900/85 backdrop-blur-md rounded-xl border border-stone-700/60 shadow-xl z-20 select-none">
-        <button
-          onClick={() => handleZoom('in')}
-          title="Zoom In (+)"
-          className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
-          aria-label="Zoom In"
-        >
-          <ZoomIn className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => handleZoom('out')}
-          title="Zoom Out (-)"
-          className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
-          aria-label="Zoom Out"
-        >
-          <ZoomOut className="w-4 h-4" />
-        </button>
-        <button
-          onClick={handleSquareAspect}
-          title="Lock Square Aspect Ratio (1:1)"
-          className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
-          aria-label="Square Aspect"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
-        <button
-          onClick={handleResetViewport}
-          title="Reset Standard Window"
-          className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
-          aria-label="Reset View"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </button>
-        <button
-          onClick={handleSnapshotCanvas}
-          title={snapshotStatus === 'copied' ? 'Copied image!' : 'Copy or Download Graph Snapshot'}
-          className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
-          aria-label="Snapshot Graph"
-        >
-          {snapshotStatus ? (
-            <Check className="w-4 h-4 text-emerald-400" />
-          ) : (
-            <Camera className="w-4 h-4 text-amber-400" />
-          )}
-        </button>
+      {/* Floating Canvas Navigation Toolbar (Collapsible & Auto-fading) */}
+      <div
+        className={`absolute right-3 sm:right-5 bottom-20 md:bottom-6 z-20 select-none transition-all duration-200 ${
+          isDragging ? 'opacity-30 pointer-events-none' : 'opacity-95 hover:opacity-100'
+        }`}
+      >
+        {isControlsCollapsed ? (
+          <button
+            onClick={() => setIsControlsCollapsed(false)}
+            title="Expand Graph Navigation Controls"
+            className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center p-2 bg-stone-900/85 hover:bg-stone-900 text-stone-300 hover:text-white backdrop-blur-md rounded-xl border border-stone-700/60 shadow-xl transition-all active:scale-95"
+          >
+            <Sliders className="w-4 h-4 text-amber-500" />
+          </button>
+        ) : (
+          <div className="flex flex-col gap-1.5 p-1 bg-stone-900/85 backdrop-blur-md rounded-xl border border-stone-700/60 shadow-xl">
+            {/* Trace Mode Toggle */}
+            <button
+              onClick={() => setIsTraceModeActive(!isTraceModeActive)}
+              title={
+                isTraceModeActive
+                  ? 'Trace Mode Active (Click to disable)'
+                  : 'Enable Trace Mode (Snap cursor to curve coordinates & slope)'
+              }
+              className={`w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 rounded-lg transition-all active:scale-90 ${
+                isTraceModeActive
+                  ? 'bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/40 shadow-xs'
+                  : 'text-stone-300 hover:text-white hover:bg-stone-800'
+              }`}
+              aria-label="Trace Mode"
+            >
+              <Activity className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => handleZoom('in')}
+              title="Zoom In (+)"
+              className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
+              aria-label="Zoom In"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleZoom('out')}
+              title="Zoom Out (-)"
+              className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
+              aria-label="Zoom Out"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleSquareAspect}
+              title="Lock Square Aspect Ratio (1:1)"
+              className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
+              aria-label="Square Aspect"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleResetViewport}
+              title="Reset Standard Window"
+              className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
+              aria-label="Reset View"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleSnapshotCanvas}
+              title={snapshotStatus === 'copied' ? 'Copied image to clipboard!' : 'Snapshot / Copy Graph Canvas'}
+              className="w-10 h-10 sm:w-9 sm:h-9 min-w-[40px] sm:min-w-[36px] min-h-[40px] sm:min-h-[36px] flex items-center justify-center p-2 text-stone-300 hover:text-white hover:bg-stone-800 active:scale-90 rounded-lg transition-all"
+              aria-label="Snapshot Graph"
+            >
+              {snapshotStatus ? (
+                <Check className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <Camera className="w-4 h-4 text-amber-400" />
+              )}
+            </button>
+
+            {/* Collapse button */}
+            <button
+              onClick={() => setIsControlsCollapsed(true)}
+              title="Minimize Controls Dock"
+              className="w-10 h-7 sm:w-9 sm:h-6 flex items-center justify-center text-stone-500 hover:text-stone-300 hover:bg-stone-800 rounded-lg transition-all"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Interactive Trace Point Floating Badge */}
+      {tracedPoint && (
+        <div
+          className="absolute z-30 pointer-events-none px-2.5 py-1.5 rounded-xl shadow-2xl border text-xs font-mono tabular-nums backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-0.5"
+          style={{
+            left: Math.min(Math.max(tracedPoint.sx + 14, 10), (viewport.width || 400) - 170),
+            top: Math.max(tracedPoint.sy - 46, 12),
+            backgroundColor: 'rgba(20, 24, 33, 0.94)',
+            borderColor: tracedPoint.color || '#F59E0B',
+            color: '#F8FAFC',
+          }}
+        >
+          <div className="flex items-center gap-1.5 font-bold text-3xs uppercase tracking-wider" style={{ color: tracedPoint.color }}>
+            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: tracedPoint.color }} />
+            <span>Exact Point Trace</span>
+          </div>
+          <div className="text-2xs text-stone-200 font-bold">
+            ({tracedPoint.x.toFixed(4)}, {tracedPoint.y.toFixed(4)})
+          </div>
+          {tracedPoint.slope !== undefined && !isNaN(tracedPoint.slope) && isFinite(tracedPoint.slope) && (
+            <div className="text-3xs text-stone-400 italic">
+              dy/dx = {tracedPoint.slope.toFixed(4)}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Real-time Cursor Coordinates Readout */}
       {hoverCoord && (
@@ -765,6 +877,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           <span>X: {hoverCoord.x.toFixed(3)}</span>
           <span className="text-stone-600">|</span>
           <span>Y: {hoverCoord.y.toFixed(3)}</span>
+          {isTraceModeActive && (
+            <>
+              <span className="text-stone-600">|</span>
+              <span className="text-emerald-400 font-semibold text-3xs">TRACE ON</span>
+            </>
+          )}
         </div>
       )}
     </div>

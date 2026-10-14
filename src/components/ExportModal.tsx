@@ -34,6 +34,67 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     link.click();
   };
 
+  const handleDownloadTransparentPNG = () => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+    const off = document.createElement('canvas');
+    off.width = canvas.width;
+    off.height = canvas.height;
+    const ctx = off.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(canvas, 0, 0);
+    const imgData = ctx.getImageData(0, 0, off.width, off.height);
+    const d = imgData.data;
+
+    // Convert canvas background pixels into alpha 0
+    const bgHex = theme.bgCanvas.replace('#', '');
+    const bgR = parseInt(bgHex.substring(0, 2), 16) || 250;
+    const bgG = parseInt(bgHex.substring(2, 4), 16) || 246;
+    const bgB = parseInt(bgHex.substring(4, 6), 16) || 238;
+
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i];
+      const g = d[i + 1];
+      const b = d[i + 2];
+      if (Math.abs(r - bgR) < 18 && Math.abs(g - bgG) < 18 && Math.abs(b - bgB) < 18) {
+        d[i + 3] = 0;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    const link = document.createElement('a');
+    link.download = `${exportTitle.toLowerCase().replace(/\s+/g, '_')}_transparent.png`;
+    link.href = off.toDataURL('image/png');
+    link.click();
+  };
+
+  const handleDownloadSVG = () => {
+    const canvas = document.querySelector('canvas');
+    const width = canvas?.width || 1200;
+    const height = canvas?.height || 800;
+    const activeExpressions = expressions.filter((e) => e.visible);
+
+    let svgContent = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    svgContent += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">\n`;
+    svgContent += `  <style>\n    .axis { stroke: ${theme.gridAxis}; stroke-width: 1.5; }\n    .title { font-family: serif; font-size: 16px; fill: ${theme.textPrimary}; }\n  </style>\n`;
+    svgContent += `  <rect width="100%" height="100%" fill="${theme.bgCanvas}" />\n`;
+    if (canvas) {
+      svgContent += `  <image href="${canvas.toDataURL('image/png')}" width="${width}" height="${height}" />\n`;
+    }
+    activeExpressions.forEach((expr, idx) => {
+      svgContent += `  <!-- Curve ${idx + 1}: ${expr.rawText.replace(/&/g, '&amp;').replace(/</g, '&lt;')} -->\n`;
+    });
+    svgContent += `  <text x="24" y="36" class="title">${exportTitle}</text>\n`;
+    svgContent += `</svg>`;
+
+    const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${exportTitle.toLowerCase().replace(/\s+/g, '_')}_vector.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleCopyLatex = () => {
     const latexLines = expressions
       .filter((e) => e.visible)
@@ -131,6 +192,36 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <div className="flex items-center gap-2.5">
                 <Image className="w-4 h-4" />
                 <span>Download High-Resolution PNG</span>
+              </div>
+              <Download className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={handleDownloadTransparentPNG}
+              className="w-full py-2.5 px-4 rounded-xl border flex items-center justify-between font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              style={{
+                borderColor: theme.border,
+                color: theme.textPrimary,
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <Image className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span>Download Transparent Background PNG</span>
+              </div>
+              <Download className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={handleDownloadSVG}
+              className="w-full py-2.5 px-4 rounded-xl border flex items-center justify-between font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              style={{
+                borderColor: theme.border,
+                color: theme.textPrimary,
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <FileCode className="w-4 h-4 text-indigo-500" />
+                <span>Download High-Resolution SVG Vector</span>
               </div>
               <Download className="w-4 h-4" />
             </button>

@@ -10,6 +10,7 @@ export type P2PConnectionState = 'disconnected' | 'connecting' | 'connected' | '
 
 export interface ChatMessage {
   id: string;
+  senderId?: string;
   sender: 'self' | 'peer';
   senderName: string;
   text: string;
@@ -51,10 +52,16 @@ const ICE_SERVERS: RTCConfiguration = {
   ],
 };
 
+export interface SignalPayload {
+  type: 'offer' | 'answer';
+  sdp: string;
+  candidates?: RTCIceCandidateInit[];
+}
+
 /**
  * Robust, client-safe base64 string encoder using TextEncoder
  */
-export function encodeSignalToken(data: { type: 'offer' | 'answer'; sdp: string }): string {
+export function encodeSignalToken(data: SignalPayload): string {
   try {
     const json = JSON.stringify(data);
     const bin = new TextEncoder().encode(json);
@@ -71,7 +78,7 @@ export function encodeSignalToken(data: { type: 'offer' | 'answer'; sdp: string 
 /**
  * Robust signal token decoder
  */
-export function decodeSignalToken(token: string): { type: 'offer' | 'answer'; sdp: string } {
+export function decodeSignalToken(token: string): SignalPayload {
   const trimmed = token.trim();
   try {
     const binary = atob(trimmed);
@@ -85,7 +92,7 @@ export function decodeSignalToken(token: string): { type: 'offer' | 'answer'; sd
       throw new Error('Invalid signaling token');
     }
     return parsed;
-  } catch (err: any) {
+  } catch {
     // Fallback direct JSON parse in case raw JSON was pasted
     try {
       const parsed = JSON.parse(trimmed);
@@ -98,38 +105,42 @@ export function decodeSignalToken(token: string): { type: 'offer' | 'answer'; sd
 /**
  * Waits for ICE candidates gathering to produce usable connectivity candidates.
  */
-function waitForIceGathering(pc: RTCPeerConnection, timeoutMs = 2800): Promise<void> {
+function waitForIceGathering(
+  pc: RTCPeerConnection,
+  collectedCandidates: RTCIceCandidateInit[],
+  timeoutMs = 2600
+): Promise<void> {
   return new Promise((resolve) => {
     if (pc.iceGatheringState === 'complete') {
       resolve();
       return;
     }
 
-    let candidateCount = 0;
-    const timer = setTimeout(() => {
+    let finished = false;
+    const cleanupAndResolve = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      pc.removeEventListener('icecandidate', onCandidate);
+      pc.removeEventListener('icegatheringstatechange', checkState);
       resolve();
-    }, timeoutMs);
+    };
+
+    const timer = setTimeout(cleanupAndResolve, timeoutMs);
 
     const onCandidate = (e: RTCPeerConnectionIceEvent) => {
       if (e.candidate) {
-        candidateCount++;
-        // If we already have multiple candidates and a short window passed, resolve early
-        if (candidateCount >= 3) {
-          setTimeout(() => {
-            clearTimeout(timer);
-            pc.removeEventListener('icecandidate', onCandidate);
-            resolve();
-          }, 400);
+        collectedCandidates.push(e.candidate.toJSON());
+        // If gathering has collected multiple candidates, resolve after brief grace period
+        if (collectedCandidates.length >= 4) {
+          setTimeout(cleanupAndResolve, 300);
         }
       }
     };
 
     const checkState = () => {
       if (pc.iceGatheringState === 'complete') {
-        clearTimeout(timer);
-        pc.removeEventListener('icegatheringstatechange', checkState);
-        pc.removeEventListener('icecandidate', onCandidate);
-        resolve();
+        cleanupAndResolve();
       }
     };
 
@@ -240,8 +251,9 @@ export class P2PEngine {
     const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
 
-    // Gather local ICE candidates into the SDP
-    await waitForIceGathering(this.pc);
+    // Gather local ICE candidates
+    const collectedCandidates: RTCIceCandidateInit[] = [];
+    await waitForIceGathering(this.pc, collectedCandidates);
 
     if (!this.pc.localDescription) {
       throw new Error('Failed to create local offer description');
@@ -250,6 +262,7 @@ export class P2PEngine {
     return encodeSignalToken({
       type: 'offer',
       sdp: this.pc.localDescription.sdp,
+      candidates: collectedCandidates,
     });
   }
 
@@ -258,11 +271,21 @@ export class P2PEngine {
    */
   public async applyGuestAnswer(answerToken: string): Promise<void> {
     if (!this.pc) throw new Error('Host connection not initialized');
-    const { type, sdp } = decodeSignalToken(answerToken);
+    const { type, sdp, candidates } = decodeSignalToken(answerToken);
     if (type !== 'answer') {
       throw new Error('Expected answer token, received: ' + type);
     }
     await this.pc.setRemoteDescription(new RTCSessionDescription({ type, sdp }));
+
+    if (candidates && candidates.length > 0) {
+      for (const cand of candidates) {
+        try {
+          await this.pc.addIceCandidate(new RTCIceCandidate(cand));
+        } catch {
+          // non-fatal if candidate already embedded in sdp
+        }
+      }
+    }
   }
 
   /**
@@ -272,7 +295,7 @@ export class P2PEngine {
     this.disconnect();
     this.setState('connecting');
 
-    const { type, sdp } = decodeSignalToken(hostOfferToken);
+    const { type, sdp, candidates } = decodeSignalToken(hostOfferToken);
     if (type !== 'offer') {
       throw new Error('Expected offer token, received: ' + type);
     }
@@ -285,11 +308,23 @@ export class P2PEngine {
     };
 
     await this.pc.setRemoteDescription(new RTCSessionDescription({ type, sdp }));
+
+    if (candidates && candidates.length > 0) {
+      for (const cand of candidates) {
+        try {
+          await this.pc.addIceCandidate(new RTCIceCandidate(cand));
+        } catch {
+          // ignore
+        }
+      }
+    }
+
     const answer = await this.pc.createAnswer();
     await this.pc.setLocalDescription(answer);
 
     // Wait for ICE gathering
-    await waitForIceGathering(this.pc);
+    const collectedCandidates: RTCIceCandidateInit[] = [];
+    await waitForIceGathering(this.pc, collectedCandidates);
 
     if (!this.pc.localDescription) {
       throw new Error('Failed to create local answer description');
@@ -298,6 +333,7 @@ export class P2PEngine {
     return encodeSignalToken({
       type: 'answer',
       sdp: this.pc.localDescription.sdp,
+      candidates: collectedCandidates,
     });
   }
 

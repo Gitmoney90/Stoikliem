@@ -16,6 +16,13 @@ import {
   Smile,
   LogOut,
   Camera,
+  Upload,
+  Download,
+  FolderOpen,
+  Image as ImageIcon,
+  HardDrive,
+  Cloud,
+  FileText,
 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -132,6 +139,107 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } finally {
       setSavingProfile(false);
     }
+  };
+
+  const [driveUrlInput, setDriveUrlInput] = useState('');
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image must be under 10MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawData = event.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 160;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.85);
+          setAvatarUrl(compressed);
+          setSaveSuccess(false);
+        }
+      };
+      img.src = rawData;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleGoogleDriveConvert = () => {
+    const trimmed = driveUrlInput.trim();
+    if (!trimmed) return;
+    const match = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/) || trimmed.match(/id=([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      const directUrl = `https://lh3.googleusercontent.com/d/${match[1]}`;
+      setAvatarUrl(directUrl);
+      setDriveUrlInput('');
+    } else {
+      setAvatarUrl(trimmed);
+      setDriveUrlInput('');
+    }
+  };
+
+  const handleExportDossier = () => {
+    const dossier = {
+      username,
+      displayName,
+      academicTitle,
+      bio,
+      avatarUrl,
+      avatarEmoji,
+      exportedAt: new Date().toISOString(),
+      generator: 'Principia Graphica Scholar Dossier',
+    };
+    const blob = new Blob([JSON.stringify(dossier, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `scholar_profile_${username || 'dossier'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportDossier = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const parsed = JSON.parse(evt.target?.result as string);
+        if (parsed.username) setUsername(parsed.username);
+        if (parsed.displayName) setDisplayName(parsed.displayName);
+        if (parsed.academicTitle) setAcademicTitle(parsed.academicTitle);
+        if (parsed.bio) setBio(parsed.bio);
+        if (parsed.avatarEmoji) setAvatarEmoji(parsed.avatarEmoji);
+        if (parsed.avatarUrl) setAvatarUrl(parsed.avatarUrl);
+        setError(null);
+      } catch {
+        setError('Could not read scholar JSON file.');
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -438,23 +546,118 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       ))}
                     </div>
 
-                    <div className="pt-1">
-                      <label className="block text-2xs font-medium mb-1" style={{ color: theme.textSecondary }}>
-                        Or Custom Profile Picture Image URL:
-                      </label>
-                      <input
-                        type="url"
-                        maxLength={1000}
-                        value={avatarUrl}
-                        onChange={(e) => setAvatarUrl(e.target.value)}
-                        placeholder="https://example.com/avatar.jpg"
-                        className="w-full px-3 py-1.5 rounded-lg border text-2xs font-mono"
-                        style={{
-                          backgroundColor: theme.bgSidebar,
-                          borderColor: theme.border,
-                          color: theme.textPrimary,
-                        }}
-                      />
+                    {/* Profile Image Upload & Google Drive Integration */}
+                    <div className="pt-2 border-t space-y-3" style={{ borderColor: theme.border }}>
+                      <div className="flex items-center justify-between">
+                        <label className="block text-2xs uppercase tracking-wider font-semibold" style={{ color: theme.textMuted }}>
+                          Scholar Portrait Photo
+                        </label>
+                        <span className="text-3xs" style={{ color: theme.textSecondary }}>
+                          Local File or Google Drive
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* 1. Upload from Local Storage */}
+                        <label
+                          className="px-3 py-2 rounded-lg border border-dashed flex items-center justify-center gap-2 cursor-pointer transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:scale-98 text-xs font-medium"
+                          style={{ borderColor: theme.border, color: theme.textPrimary }}
+                        >
+                          <HardDrive className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                          <span>Upload from Local Storage</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageFileChange}
+                            className="hidden"
+                          />
+                        </label>
+
+                        {/* 2. Google Drive / Cloud Link Converter */}
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={driveUrlInput}
+                            onChange={(e) => setDriveUrlInput(e.target.value)}
+                            placeholder="Paste Google Drive / image link"
+                            className="flex-1 px-2.5 py-1.5 rounded-lg border text-3xs font-mono"
+                            style={{
+                              backgroundColor: theme.bgSidebar,
+                              borderColor: theme.border,
+                              color: theme.textPrimary,
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleGoogleDriveConvert}
+                            title="Convert & Apply Google Drive Link"
+                            className="px-2.5 py-1.5 rounded-lg border text-3xs font-semibold flex items-center gap-1 hover:bg-black/5 dark:hover:bg-white/5 shrink-0 transition-colors"
+                            style={{ borderColor: theme.accent, color: theme.accent }}
+                          >
+                            <Cloud className="w-3 h-3" />
+                            <span>Apply</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Direct URL input fallback */}
+                      <div className="relative">
+                        <input
+                          type="url"
+                          maxLength={65000}
+                          value={avatarUrl}
+                          onChange={(e) => setAvatarUrl(e.target.value)}
+                          placeholder="Or direct image URL (https://...)"
+                          className="w-full px-3 py-1.5 rounded-lg border text-3xs font-mono"
+                          style={{
+                            backgroundColor: theme.bgSidebar,
+                            borderColor: theme.border,
+                            color: theme.textPrimary,
+                          }}
+                        />
+                        {avatarUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setAvatarUrl('')}
+                            className="absolute right-2 top-2 text-3xs font-medium opacity-60 hover:opacity-100"
+                            style={{ color: theme.textSecondary }}
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Dossier Backup & Restore */}
+                      <div className="pt-2 border-t flex items-center justify-between gap-2 text-2xs" style={{ borderColor: theme.border }}>
+                        <span className="text-3xs opacity-70">Scholar Dossier Backup:</span>
+                        <div className="flex items-center gap-2">
+                          <label
+                            className="px-2 py-1 rounded border text-3xs font-medium cursor-pointer flex items-center gap-1 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                            style={{ borderColor: theme.border, color: theme.textSecondary }}
+                            title="Import profile info from JSON file (from local drive or Google Drive download)"
+                          >
+                            <FolderOpen className="w-3 h-3" />
+                            <span>Import JSON</span>
+                            <input
+                              type="file"
+                              accept=".json"
+                              onChange={handleImportDossier}
+                              className="hidden"
+                            />
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={handleExportDossier}
+                            className="px-2 py-1 rounded border text-3xs font-medium flex items-center gap-1 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                            style={{ borderColor: theme.border, color: theme.textSecondary }}
+                            title="Download scholar profile dossier to local storage / save to Google Drive"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Export JSON</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
 

@@ -17,6 +17,8 @@ import {
   symbolicFactor,
   symbolicExpand,
   symbolicPartFrac,
+  symbolicTaylor,
+  computeDefiniteIntegralWithSteps,
   SymbolicPoint,
 } from '../math/casEngine';
 import { MathView } from './MathView';
@@ -103,6 +105,12 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
     return currentExpr.rawText.replace(/^(?:y|f\s*\(\s*x\s*\))\s*=\s*/i, '').trim();
   }, [isOpen, currentExpr]);
 
+  // Taylor Series & Definite Integral States
+  const [taylorCenter, setTaylorCenter] = useState<number>(0);
+  const [taylorOrder, setTaylorOrder] = useState<number>(4);
+  const [definiteA, setDefiniteA] = useState<number>(0);
+  const [definiteB, setDefiniteB] = useState<number>(2);
+
   // 1. Symbolic Calculus Computation
   const symbolicD1 = useMemo(() => {
     if (!isOpen || !rawFunctionBody) return null;
@@ -118,6 +126,18 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
     if (!isOpen || !rawFunctionBody) return null;
     return symbolicIntegrate(rawFunctionBody, 'x');
   }, [isOpen, rawFunctionBody]);
+
+  // Taylor Polynomial Approximation
+  const taylorSeriesResult = useMemo(() => {
+    if (!isOpen || !rawFunctionBody) return null;
+    return symbolicTaylor(rawFunctionBody, 'x', taylorCenter, taylorOrder);
+  }, [isOpen, rawFunctionBody, taylorCenter, taylorOrder]);
+
+  // Definite Integral with FTC Steps
+  const definiteIntegralResult = useMemo(() => {
+    if (!isOpen || !rawFunctionBody) return null;
+    return computeDefiniteIntegralWithSteps(rawFunctionBody, 'x', definiteA, definiteB);
+  }, [isOpen, rawFunctionBody, definiteA, definiteB]);
 
   // 2. Exact Algebraic Key Points for Active Curve
   const algebraicKeyPoints = useMemo(() => {
@@ -452,6 +472,148 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                     </div>
                   ) : (
                     <div className="text-2xs text-rose-600">{symbolicInt?.error || 'Closed-form anti-derivative not found'}</div>
+                  )}
+                </div>
+
+                {/* Definite Integral with Fundamental Theorem of Calculus Steps */}
+                <div className="p-3 rounded-xl border space-y-2.5 bg-black/[0.02] dark:bg-white/[0.02]" style={{ borderColor: theme.border }}>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-xs" style={{ color: theme.textPrimary }}>
+                        Definite Integral & FTC Steps: [F(b) − F(a)]
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-2xs font-mono">
+                      <span>a =</span>
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={definiteA}
+                        onChange={(e) => setDefiniteA(parseFloat(e.target.value) || 0)}
+                        className="w-14 px-1.5 py-0.5 rounded border text-right font-mono text-xs tabular-nums"
+                        style={{ backgroundColor: theme.bgSidebar, borderColor: theme.border, color: theme.textPrimary }}
+                      />
+                      <span>b =</span>
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={definiteB}
+                        onChange={(e) => setDefiniteB(parseFloat(e.target.value) || 0)}
+                        className="w-14 px-1.5 py-0.5 rounded border text-right font-mono text-xs tabular-nums"
+                        style={{ backgroundColor: theme.bgSidebar, borderColor: theme.border, color: theme.textPrimary }}
+                      />
+                    </div>
+                  </div>
+
+                  {definiteIntegralResult?.success ? (
+                    <div className="space-y-2 p-2.5 rounded-lg border text-xs font-mono" style={{ backgroundColor: theme.bgSidebar, borderColor: theme.border }}>
+                      <div className="flex items-center justify-between border-b pb-1.5" style={{ borderColor: theme.border }}>
+                        <span className="text-3xs uppercase tracking-wider opacity-60">FTC Step Breakdown:</span>
+                        <span className="text-xs font-bold font-mono" style={{ color: theme.accent }}>
+                          ≈ {!isNaN(definiteIntegralResult.numericVal) ? definiteIntegralResult.numericVal.toFixed(6) : 'N/A'}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 text-2xs">
+                        <div className="overflow-x-auto">
+                          <MathView
+                            math={`\\int_{${definiteA}}^{${definiteB}} f(x) dx = \\left[ ${definiteIntegralResult.antiderivativeLatex} \\right]_{${definiteA}}^{${definiteB}}`}
+                            displayMode={false}
+                          />
+                        </div>
+
+                        <div className="overflow-x-auto text-3xs opacity-85">
+                          <span>= F({definiteB}) − F({definiteA}) = </span>
+                          <MathView math={`(${definiteIntegralResult.fAtUpperLatex}) - (${definiteIntegralResult.fAtLowerLatex})`} displayMode={false} />
+                        </div>
+
+                        <div className="overflow-x-auto font-bold pt-0.5">
+                          <span>Exact Net Area = </span>
+                          <MathView math={definiteIntegralResult.resultLatex} displayMode={false} />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-2xs text-stone-500">
+                      {definiteIntegralResult?.error || 'Enter integration limits above to compute step breakdown'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Taylor Series Expansion Polynomial P_n(x) */}
+                <div className="p-3 rounded-xl border space-y-2.5 bg-black/[0.02] dark:bg-white/[0.02]" style={{ borderColor: theme.border }}>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <span className="font-semibold text-xs block" style={{ color: theme.textPrimary }}>
+                        Taylor / Maclaurin Polynomial Approximation
+                      </span>
+                      <span className="text-3xs font-mono opacity-60">Pn(x) series expansion</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-2xs font-mono">
+                      <span>Center a =</span>
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={taylorCenter}
+                        onChange={(e) => setTaylorCenter(parseFloat(e.target.value) || 0)}
+                        className="w-14 px-1.5 py-0.5 rounded border text-right font-mono text-xs tabular-nums"
+                        style={{ backgroundColor: theme.bgSidebar, borderColor: theme.border, color: theme.textPrimary }}
+                      />
+                      <span>Order n =</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        step="1"
+                        value={taylorOrder}
+                        onChange={(e) => setTaylorOrder(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+                        className="w-12 px-1.5 py-0.5 rounded border text-right font-mono text-xs tabular-nums"
+                        style={{ backgroundColor: theme.bgSidebar, borderColor: theme.border, color: theme.textPrimary }}
+                      />
+                    </div>
+                  </div>
+
+                  {taylorSeriesResult?.success ? (
+                    <div className="space-y-2 p-2.5 rounded-lg border font-mono text-xs" style={{ backgroundColor: theme.bgSidebar, borderColor: theme.border }}>
+                      <div className="flex items-center justify-between border-b pb-1" style={{ borderColor: theme.border }}>
+                        <span className="text-3xs uppercase tracking-wider opacity-60">Degree {taylorOrder} Polynomial:</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(taylorSeriesResult.rawText)}
+                            title="Copy Taylor Polynomial"
+                            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                            style={{ color: theme.textSecondary }}
+                          >
+                            {copiedText === taylorSeriesResult.rawText ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handlePlotResult(`y = ${taylorSeriesResult.rawText}`)}
+                            className="px-2 py-0.5 text-3xs rounded-md font-semibold border flex items-center gap-1 hover:opacity-90 active:scale-95 transition-all text-amber-700 dark:text-amber-400 bg-amber-500/10"
+                            style={{ borderColor: theme.border }}
+                          >
+                            <PlusCircle className="w-3 h-3" />
+                            <span>Plot P{taylorOrder}(x)</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto py-1">
+                        <MathView math={`P_{${taylorOrder}}(x) = ${taylorSeriesResult.latex}`} displayMode={true} />
+                      </div>
+                      <div className="text-3xs opacity-60 font-mono truncate">{taylorSeriesResult.rawText}</div>
+                    </div>
+                  ) : (
+                    <div className="text-2xs text-stone-500">
+                      {taylorSeriesResult?.error || 'Enter function to generate Taylor series polynomial'}
+                    </div>
                   )}
                 </div>
 
