@@ -14,6 +14,7 @@ import {
   MoreVertical,
   Sliders,
   TrendingUp,
+  Sparkles,
 } from 'lucide-react';
 
 interface ExpressionItemProps {
@@ -29,6 +30,7 @@ interface ExpressionItemProps {
   onDuplicate: () => void;
   onUpdateExpression: (updated: Partial<GraphExpression>) => void;
   onFocusInput: () => void;
+  onOpenCAS?: () => void;
 }
 
 export const ExpressionItem: React.FC<ExpressionItemProps> = ({
@@ -44,6 +46,7 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
   onDuplicate,
   onUpdateExpression,
   onFocusInput,
+  onOpenCAS,
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -189,6 +192,20 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
                 <Copy className="w-4 h-4" />
                 <span>Duplicate</span>
               </button>
+
+              {isExplicit && onOpenCAS && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenCAS();
+                    setShowMenu(false);
+                  }}
+                  className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 text-amber-700 dark:text-amber-400 font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors min-h-[40px]"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>CAS & Derivatives</span>
+                </button>
+              )}
 
               {isExplicit && (
                 <button

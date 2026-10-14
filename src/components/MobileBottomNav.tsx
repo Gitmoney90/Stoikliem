@@ -16,6 +16,7 @@ import {
   Calculator,
   ChevronRight,
   TrendingUp,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -315,17 +316,17 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <span className="text-3xs font-medium tracking-tight">Presets</span>
         </button>
 
-        {/* Tab 3: Calculus Studio Drawer */}
+        {/* Tab 3: Symbolic CAS & Calculus Studio Drawer */}
         <button
           onClick={onToggleAnalysis}
           className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95"
           style={{
             color: isAnalysisOpen ? theme.accent : theme.textSecondary,
           }}
-          aria-label="Calculus Studio"
+          aria-label="Symbolic CAS & Calculus Studio"
         >
-          <Sliders className="w-4 h-4" />
-          <span className="text-3xs font-medium tracking-tight">Calculus</span>
+          <Sparkles className="w-4 h-4" />
+          <span className="text-3xs font-medium tracking-tight">CAS/Calc</span>
         </button>
 
         {/* Tab 4: Graph Theory Explorer */}

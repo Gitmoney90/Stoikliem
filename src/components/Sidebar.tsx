@@ -25,6 +25,7 @@ interface SidebarProps {
   onInsertKeypadText: (str: string) => void;
   onKeypadBackspace: () => void;
   onKeypadClear: () => void;
+  onOpenCAS?: (id: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -47,6 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onInsertKeypadText,
   onKeypadBackspace,
   onKeypadClear,
+  onOpenCAS,
 }) => {
   return (
     <>
@@ -141,6 +143,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onDuplicate={() => onDuplicateExpression(expr.id)}
             onUpdateExpression={(data) => onUpdateExpressionData(expr.id, data)}
             onFocusInput={() => onSelectExpression(expr.id)}
+            onOpenCAS={() => onOpenCAS?.(expr.id)}
           />
         ))}
 

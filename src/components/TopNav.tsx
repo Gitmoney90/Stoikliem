@@ -12,6 +12,7 @@ import {
   LogIn,
   Radio,
   Network,
+  Sparkles,
 } from 'lucide-react';
 
 interface TopNavProps {
@@ -80,13 +81,17 @@ export const TopNav: React.FC<TopNavProps> = ({
 
         <button
           onClick={onToggleAnalysis}
-          className={`flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1 ${
-            isAnalysisOpen ? 'font-semibold' : ''
+          title="Symbolic Computer Algebra System (CAS), Exact Derivatives, Integrals & Algebraic Solver"
+          className={`flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 hover:underline py-1 ${
+            isAnalysisOpen ? 'font-bold' : ''
           }`}
           style={{ color: isAnalysisOpen ? theme.accent : theme.textSecondary }}
         >
-          <Sliders className="w-3.5 h-3.5" />
-          <span>Calculus Studio</span>
+          <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+          <span>CAS & Calculus</span>
+          <span className="px-1.5 py-0.2 rounded text-3xs font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400">
+            Symbolic
+          </span>
         </button>
 
         <button

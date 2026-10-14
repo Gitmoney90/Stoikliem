@@ -225,6 +225,10 @@ export default function App() {
             expr.sliderMax = 10;
             expr.sliderStep = 0.1;
           }
+        } else if (parsed.type === 'point') {
+          expr.type = 'point';
+          if (parsed.pointX !== undefined && expr.pointX === undefined) expr.pointX = parsed.pointX;
+          if (parsed.pointY !== undefined && expr.pointY === undefined) expr.pointY = parsed.pointY;
         } else if (parsed.type !== 'slider' && expr.type !== parsed.type) {
           expr.type = parsed.type;
         }
@@ -425,6 +429,40 @@ export default function App() {
     setExpressions((prev) => [...prev, ...newExprs]);
   };
 
+  // CAS Direct Graphing Handlers
+  const handlePlotCASExpression = (rawText: string, color?: string) => {
+    const newId = `cas_${Date.now()}`;
+    const nextColor = color || theme.curvePalette[expressions.length % theme.curvePalette.length];
+    const formatted = rawText.startsWith('y =') || rawText.startsWith('y=') || rawText.includes('=')
+      ? rawText
+      : `y = ${rawText}`;
+    const newExpr: GraphExpression = {
+      id: newId,
+      rawText: formatted,
+      color: nextColor,
+      visible: true,
+      type: 'explicit',
+    };
+    setExpressions((prev) => [...prev, newExpr]);
+    setActiveExpressionId(newId);
+  };
+
+  const handlePlotCASPoint = (x: number, y: number, label: string, color?: string) => {
+    const newId = `cas_pt_${Date.now()}`;
+    const newExpr: GraphExpression = {
+      id: newId,
+      rawText: `(${Number(x.toFixed(4))}, ${Number(y.toFixed(4))})`,
+      color: color || theme.accent,
+      visible: true,
+      type: 'point',
+      pointX: x,
+      pointY: y,
+      pointLabel: label,
+    };
+    setExpressions((prev) => [...prev, newExpr]);
+    setActiveExpressionId(newId);
+  };
+
   // Virtual Keypad insert & backspace
   const handleInsertKeypadText = (str: string) => {
     if (!activeExpressionId) {
@@ -557,6 +595,10 @@ export default function App() {
           onInsertKeypadText={handleInsertKeypadText}
           onKeypadBackspace={handleKeypadBackspace}
           onKeypadClear={handleKeypadClear}
+          onOpenCAS={(id) => {
+            setActiveExpressionId(id);
+            setIsAnalysisOpen(true);
+          }}
         />
 
         {/* Sidebar Collapse Toggle Button (Desktop only; on mobile controlled via bottom nav) */}
@@ -603,6 +645,8 @@ export default function App() {
             viewport={viewport}
             scope={scope}
             onUpdateExpressionData={handleUpdateExpressionData}
+            onPlotExpression={handlePlotCASExpression}
+            onPlotPoint={handlePlotCASPoint}
           />
         </main>
       </div>
