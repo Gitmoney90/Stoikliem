@@ -60,6 +60,8 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
   const isParametric = expression.type === 'parametric' || parsedInfo?.type === 'parametric';
   const isPolar = expression.type === 'polar' || parsedInfo?.type === 'polar';
   const isExplicit = expression.type === 'explicit' || parsedInfo?.type === 'explicit';
+  const isVector = expression.type === 'complex_vector' || parsedInfo?.type === 'complex_vector';
+  const isFractal = expression.type === 'fractal' || parsedInfo?.type === 'fractal';
 
   // Smart parameter detector: detects variables like a, b, c, t needing sliders
   const unboundVariables = React.useMemo(() => {
@@ -177,7 +179,7 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
             value={expression.rawText}
             onChange={(e) => onChangeText(e.target.value)}
             onFocus={onFocusInput}
-            placeholder="e.g. y = sin(x), x^2+y^2=25"
+            placeholder="e.g. y=sin(x), (u,v), mandelbrot"
             className="w-full px-2 py-1.5 text-base sm:text-sm bg-transparent border-0 outline-none font-mono focus:ring-0 min-h-[40px]"
             style={{
               color: theme.textPrimary,
@@ -428,6 +430,45 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
               onChange={(e) => onUpdateExpression({ thetaMax: parseFloat(e.target.value) || 0 })}
               className="w-14 px-1 py-0.5 rounded border text-center text-xs tabular-nums"
               style={{ backgroundColor: theme.bgSidebar, borderColor: theme.border, color: theme.textPrimary }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Complex Vector Field Indicator */}
+      {isVector && (
+        <div className="mt-2 pt-2 border-t flex items-center justify-between text-2xs" style={{ borderColor: theme.border }}>
+          <div className="flex items-center gap-1.5 font-semibold text-cyan-700 dark:text-cyan-400">
+            <span className="px-1.5 py-0.5 rounded bg-cyan-500/15 text-3xs font-mono font-bold">
+              𝔉 Vector Field
+            </span>
+            <span className="text-3xs opacity-80">Polya Flow V = (u, v)</span>
+          </div>
+          <span className="text-3xs opacity-60 font-mono">Phase arrows</span>
+        </div>
+      )}
+
+      {/* Fractal Indicator & Iteration Detail Slider */}
+      {isFractal && (
+        <div className="mt-2 pt-2 border-t flex flex-col gap-1.5 text-2xs" style={{ borderColor: theme.border }}>
+          <div className="flex items-center justify-between">
+            <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 text-3xs font-mono font-bold">
+              ℂ {parsedInfo?.fractalType === 'julia' ? 'Julia Curve Locus' : parsedInfo?.fractalType === 'newton' ? "Newton's Basins" : 'Mandelbrot Fractal'}
+            </span>
+            <span className="text-3xs font-mono tabular-nums opacity-70">
+              Depth: {expression.maxIterations || 75} iter
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-3xs opacity-60">Resolution:</span>
+            <input
+              type="range"
+              min={25}
+              max={150}
+              step={5}
+              value={expression.maxIterations || 75}
+              onChange={(e) => onUpdateExpression({ maxIterations: parseInt(e.target.value, 10) })}
+              className="flex-1 accent-amber-600 h-1.5 cursor-pointer"
             />
           </div>
         </div>

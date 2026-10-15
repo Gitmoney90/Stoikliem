@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ThemeConfig } from '../types/graph';
+import { ThemeConfig, GridMode } from '../types/graph';
 import {
   Compass,
   Sliders,
@@ -24,6 +24,8 @@ import { useAuth } from '../context/AuthContext';
 interface MobileBottomNavProps {
   theme: ThemeConfig;
   expressionsCount: number;
+  gridMode?: GridMode;
+  onSelectGridMode?: (mode: GridMode) => void;
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   isAnalysisOpen: boolean;
@@ -46,6 +48,8 @@ interface MobileBottomNavProps {
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   theme,
   expressionsCount,
+  gridMode = 'cartesian',
+  onSelectGridMode,
   isSidebarOpen,
   onToggleSidebar,
   isAnalysisOpen,
@@ -141,6 +145,60 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               </div>
               <ChevronRight className="w-4 h-4 opacity-50" />
             </div>
+
+            {/* Quick Coordinate Plane Switcher */}
+            {onSelectGridMode && (
+              <div
+                className="mb-3 p-2.5 rounded-xl border flex flex-col gap-2"
+                style={{ backgroundColor: theme.bgCard, borderColor: theme.border }}
+              >
+                <div className="flex items-center justify-between text-3xs uppercase font-bold tracking-wider" style={{ color: theme.textSecondary }}>
+                  <div className="flex items-center gap-1.5">
+                    <Compass className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Coordinate Plane Type</span>
+                  </div>
+                  <span className="font-mono text-amber-600 dark:text-amber-400 font-bold">
+                    {gridMode === 'complex'
+                      ? 'ℂ Complex'
+                      : gridMode === 'complex_vector'
+                      ? '𝔉 Vector Field'
+                      : gridMode === 'polar'
+                      ? '◎ Polar'
+                      : gridMode === 'trig'
+                      ? '∿ Trig'
+                      : '☩ Cartesian'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 text-2xs">
+                  {[
+                    { id: 'cartesian', label: '☩ Cartesian' },
+                    { id: 'complex', label: 'ℂ Complex' },
+                    { id: 'complex_vector', label: '𝔉 Vector' },
+                    { id: 'polar', label: '◎ Polar' },
+                    { id: 'trig', label: '∿ Trig' },
+                  ].map((p) => {
+                    const isSelected = gridMode === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          onSelectGridMode(p.id as GridMode);
+                          setIsMenuOpen(false);
+                        }}
+                        className={`py-2 px-1 rounded-lg border text-center transition-all ${
+                          isSelected
+                            ? 'font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/40 shadow-xs'
+                            : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Action Grid (Thumb-Friendly Android Buttons) */}
             <div className="grid grid-cols-2 gap-2 mb-3">

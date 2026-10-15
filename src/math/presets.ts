@@ -1,13 +1,21 @@
+import { EquationType } from '../types/graph';
+
 export interface CurvePreset {
   id: string;
   name: string;
-  category: 'Implicit Curves' | 'Polar Classics' | 'Parametric Curves' | 'Calculus & Transcendental';
+  category:
+    | 'Implicit Curves'
+    | 'Polar Classics'
+    | 'Parametric Curves'
+    | 'Calculus & Transcendental'
+    | 'Complex Plane & Fractals';
   historicalPeriod: string;
   discoverer: string;
   description: string;
   expressions: {
     rawText: string;
     color: string;
+    type?: EquationType;
     sliderValue?: number;
     sliderMin?: number;
     sliderMax?: number;
@@ -20,6 +28,14 @@ export interface CurvePreset {
     showIntegral?: boolean;
     integralA?: number;
     integralB?: number;
+    isPolya?: boolean;
+    fractalType?: 'mandelbrot' | 'julia' | 'newton';
+    juliaCr?: number;
+    juliaCi?: number;
+    maxIterations?: number;
+    pointX?: number;
+    pointY?: number;
+    pointLabel?: string;
   }[];
   viewport: {
     xMin: number;
@@ -27,7 +43,7 @@ export interface CurvePreset {
     yMin: number;
     yMax: number;
   };
-  gridMode?: 'cartesian' | 'polar' | 'trig';
+  gridMode?: 'cartesian' | 'polar' | 'trig' | 'complex' | 'complex_vector';
 }
 
 export const CLASSIC_PRESETS: CurvePreset[] = [
@@ -239,5 +255,147 @@ export const CLASSIC_PRESETS: CurvePreset[] = [
     ],
     viewport: { xMin: -6.5, xMax: 6.5, yMin: -2, yMax: 2 },
     gridMode: 'trig',
+  },
+  {
+    id: 'mandelbrot_fractal',
+    name: 'Mandelbrot Set & Main Cardioid',
+    category: 'Complex Plane & Fractals',
+    historicalPeriod: '1980',
+    discoverer: 'Benoît Mandelbrot & Pierre Fatou',
+    description: 'The monumental fractal boundary of connected Julia sets under z_{n+1} = z_n^2 + c. Plotted alongside its exact analytical main cardioid envelope and period-2 circular bulb.',
+    expressions: [
+      { rawText: 'fractal: mandelbrot', color: '#B45309', fractalType: 'mandelbrot' },
+      { rawText: '( 0.5*cos(t) - 0.25*cos(2*t), 0.5*sin(t) - 0.25*sin(2*t) )', color: '#E11D48', tMin: 0, tMax: 6.2831853 },
+      { rawText: '(x + 1)^2 + y^2 = 0.0625', color: '#0284C7' },
+    ],
+    viewport: { xMin: -2.2, xMax: 1.0, yMin: -1.2, yMax: 1.2 },
+    gridMode: 'complex',
+  },
+  {
+    id: 'julia_douady_rabbit',
+    name: 'Julia Curve: Douady Rabbit',
+    category: 'Complex Plane & Fractals',
+    historicalPeriod: '1918 / 1982',
+    discoverer: 'Gaston Julia & Adrien Douady',
+    description: 'The famous "Douady Rabbit" quadratic Julia set at parameter c = -0.123 + 0.745i. Three primary connected lobes pinch at roots with infinite self-similar spiral ears.',
+    expressions: [
+      { rawText: 'cr = -0.123', color: '#B45309', sliderMin: -2, sliderMax: 2, sliderStep: 0.005 },
+      { rawText: 'ci = 0.745', color: '#7E22CE', sliderMin: -2, sliderMax: 2, sliderStep: 0.005 },
+      { rawText: 'fractal: julia', color: '#10B981', fractalType: 'julia' },
+      { rawText: '(0, 0)', color: '#F59E0B', pointX: 0, pointY: 0, pointLabel: 'Origin z=0' },
+    ],
+    viewport: { xMin: -1.6, xMax: 1.6, yMin: -1.3, yMax: 1.3 },
+    gridMode: 'complex',
+  },
+  {
+    id: 'julia_dendrite_curve',
+    name: 'Julia Curve: Tree Dendrite',
+    category: 'Complex Plane & Fractals',
+    historicalPeriod: '1906',
+    discoverer: 'Pierre Fatou & Gaston Julia',
+    description: 'A connected, dendritic Julia set with strictly empty topological interior at c = -0.4 + 0.6i. Shows infinite branching fractal filaments across the complex Argand plane.',
+    expressions: [
+      { rawText: 'cr = -0.4', color: '#B45309', sliderMin: -1.5, sliderMax: 1.5, sliderStep: 0.01 },
+      { rawText: 'ci = 0.6', color: '#7E22CE', sliderMin: -1.5, sliderMax: 1.5, sliderStep: 0.01 },
+      { rawText: 'fractal: julia', color: '#8B5CF6', fractalType: 'julia' },
+    ],
+    viewport: { xMin: -1.5, xMax: 1.5, yMin: -1.4, yMax: 1.4 },
+    gridMode: 'complex',
+  },
+  {
+    id: 'julia_san_marco',
+    name: 'Julia Curve: San Marco Dragon',
+    category: 'Complex Plane & Fractals',
+    historicalPeriod: '1918',
+    discoverer: 'Gaston Julia',
+    description: 'Named for the Venetian basilica reflection silhouette along the Grand Canal. Occurs at parabolic boundary c = -0.75, connecting two symmetric pinch basins.',
+    expressions: [
+      { rawText: 'cr = -0.75', color: '#B45309', sliderMin: -1.2, sliderMax: 0.5, sliderStep: 0.01 },
+      { rawText: 'ci = 0', color: '#7E22CE', sliderMin: -1, sliderMax: 1, sliderStep: 0.01 },
+      { rawText: 'fractal: julia', color: '#059669', fractalType: 'julia' },
+    ],
+    viewport: { xMin: -1.6, xMax: 1.6, yMin: -1.2, yMax: 1.2 },
+    gridMode: 'complex',
+  },
+  {
+    id: 'polya_dipole_field',
+    name: 'Complex Polya Dipole Vector Field',
+    category: 'Complex Plane & Fractals',
+    historicalPeriod: 'Classical Fluid Mechanics',
+    discoverer: 'George Pólya & Hermann von Helmholtz',
+    description: 'The Polya conjugate vector field V(z) = conj(f(z)) of a complex doublet f(z) = 1/(z - 1) - 1/(z + 1). Direction arrows and phase color map represent velocity and streamlines of irrotational, incompressible flow.',
+    expressions: [
+      {
+        rawText: '( (x-1)/((x-1)^2+y^2) - (x+1)/((x+1)^2+y^2), -y/((x-1)^2+y^2) + y/((x+1)^2+y^2) )',
+        color: '#0284C7',
+      },
+      { rawText: '(1, 0)', color: '#16A34A', pointX: 1, pointY: 0, pointLabel: 'Source (+1)' },
+      { rawText: '(-1, 0)', color: '#DC2626', pointX: -1, pointY: 0, pointLabel: 'Sink (-1)' },
+    ],
+    viewport: { xMin: -3.2, xMax: 3.2, yMin: -2.2, yMax: 2.2 },
+    gridMode: 'complex_vector',
+  },
+  {
+    id: 'complex_stagnation_saddle',
+    name: 'Complex Vector Field: Saddle Flow',
+    category: 'Complex Plane & Fractals',
+    historicalPeriod: 'Potential Theory',
+    discoverer: 'Leonhard Euler & Carl Friedrich Gauss',
+    description: 'Vector field of the complex polynomial mapping f(z) = z^2 - 1. Displays orthogonal hyperbolic streamlines, stagnation saddle points at roots z = ±1, and phase coloration.',
+    expressions: [
+      { rawText: '( x^2 - y^2 - 1, 2*x*y )', color: '#9333EA' },
+      { rawText: '(1, 0)', color: '#E11D48', pointX: 1, pointY: 0, pointLabel: 'Stagnation z=1' },
+      { rawText: '(-1, 0)', color: '#E11D48', pointX: -1, pointY: 0, pointLabel: 'Stagnation z=-1' },
+    ],
+    viewport: { xMin: -3.0, xMax: 3.0, yMin: -2.4, yMax: 2.4 },
+    gridMode: 'complex_vector',
+  },
+  {
+    id: 'complex_spiral_vortex',
+    name: 'Complex Vector Field: Vortex Sink',
+    category: 'Complex Plane & Fractals',
+    historicalPeriod: 'Fluid Dynamics',
+    discoverer: 'Lord Kelvin & William Rankine',
+    description: 'Circulation and radial suction induced by the logarithmic complex potential w(z) = (-0.3 - 1.5*i)*ln(z). Velocity vectors rotate and spiral inward towards the central vortex.',
+    expressions: [
+      { rawText: '( (-0.3*x + 1.5*y)/(x^2 + y^2), (-0.3*y - 1.5*x)/(x^2 + y^2) )', color: '#0D9488' },
+      { rawText: '(0, 0)', color: '#F59E0B', pointX: 0, pointY: 0, pointLabel: 'Vortex Eye (0, 0)' },
+    ],
+    viewport: { xMin: -3.5, xMax: 3.5, yMin: -2.5, yMax: 2.5 },
+    gridMode: 'complex_vector',
+  },
+  {
+    id: 'newton_roots_unity',
+    name: 'Newton Fractal & Cube Roots of Unity',
+    category: 'Complex Plane & Fractals',
+    historicalPeriod: '1879',
+    discoverer: 'Arthur Cayley & Sir Isaac Newton',
+    description: 'Basins of attraction in the complex plane for Newton’s method on z^3 - 1 = 0. The three roots at 1, e^{i2π/3}, and e^{i4π/3} form chaotic fractal boundaries between attractors.',
+    expressions: [
+      { rawText: 'fractal: newton', color: '#E11D48', fractalType: 'newton' },
+      { rawText: 'r = 1', color: '#F59E0B' }, // Unit circle
+      { rawText: '(1, 0)', color: '#E11D48', pointX: 1, pointY: 0, pointLabel: 'Root 1' },
+      { rawText: '(-0.5, 0.866)', color: '#16A34A', pointX: -0.5, pointY: 0.866, pointLabel: 'Root e^(i2π/3)' },
+      { rawText: '(-0.5, -0.866)', color: '#2563EB', pointX: -0.5, pointY: -0.866, pointLabel: 'Root e^(i4π/3)' },
+    ],
+    viewport: { xMin: -2.3, xMax: 2.3, yMin: -1.8, yMax: 1.8 },
+    gridMode: 'complex',
+  },
+  {
+    id: 'cayley_conformal_disk',
+    name: 'Cayley Conformal Map & Unit Disk',
+    category: 'Complex Plane & Fractals',
+    historicalPeriod: '1851',
+    discoverer: 'Bernhard Riemann & Arthur Cayley',
+    description: 'Möbius transformation w(z) = (z - i)/(z + i) conformally projecting the upper half complex plane into the open unit disk. Illustrated with orthogonal boundary circles.',
+    expressions: [
+      { rawText: 'x^2 + y^2 = 1', color: '#D97706' }, // Boundary circle
+      { rawText: '(x - 0.5)^2 + y^2 = 0.25', color: '#2563EB' },
+      { rawText: '(x + 0.5)^2 + y^2 = 0.25', color: '#2563EB' },
+      { rawText: 'x^2 + (y - 0.5)^2 = 0.25', color: '#16A34A' },
+      { rawText: 'x^2 + (y + 0.5)^2 = 0.25', color: '#16A34A' },
+    ],
+    viewport: { xMin: -2.2, xMax: 2.2, yMin: -1.8, yMax: 1.8 },
+    gridMode: 'complex',
   },
 ];

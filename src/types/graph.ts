@@ -1,4 +1,12 @@
-export type EquationType = 'explicit' | 'parametric' | 'polar' | 'implicit' | 'slider' | 'point';
+export type EquationType =
+  | 'explicit'
+  | 'parametric'
+  | 'polar'
+  | 'implicit'
+  | 'slider'
+  | 'point'
+  | 'complex_vector'
+  | 'fractal';
 
 export type InequalityType = 'none' | '<' | '<=' | '>' | '>=';
 
@@ -39,6 +47,16 @@ export interface GraphExpression {
   pointX?: number;
   pointY?: number;
   pointLabel?: string;
+  // Complex Vector Fields
+  vectorU?: string;
+  vectorV?: string;
+  isPolya?: boolean;
+  vectorDensity?: number;
+  // Fractals (Mandelbrot, Julia, Newton)
+  fractalType?: 'mandelbrot' | 'julia' | 'newton';
+  juliaCr?: number;
+  juliaCi?: number;
+  maxIterations?: number;
   // Calculus overlay toggles
   showDerivative?: boolean;
   showSecondDerivative?: boolean;
@@ -61,7 +79,7 @@ export interface DetectedPoint {
   expressionId: string;
 }
 
-export type GridMode = 'cartesian' | 'polar' | 'trig';
+export type GridMode = 'cartesian' | 'polar' | 'trig' | 'complex' | 'complex_vector';
 
 export type ThemeId = 'parchment' | 'slate' | 'cartographer' | 'engraving';
 

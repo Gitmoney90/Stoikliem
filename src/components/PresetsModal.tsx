@@ -22,6 +22,7 @@ export const PresetsModal: React.FC<PresetsModalProps> = ({
 
   const categories = [
     'All',
+    'Complex Plane & Fractals',
     'Implicit Curves',
     'Polar Classics',
     'Parametric Curves',

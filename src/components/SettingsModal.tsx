@@ -108,16 +108,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Coordinate Grid System */}
+          {/* Coordinate Grid System & Plane Type */}
           <div>
-            <label className="block text-2xs uppercase tracking-wider font-bold mb-2" style={{ color: currentTheme.textMuted }}>
-              Coordinate Grid System
-            </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-2xs uppercase tracking-wider font-bold" style={{ color: currentTheme.textMuted }}>
+                Mathematical Plane Type & Coordinate System
+              </label>
+              <span className="text-3xs px-2 py-0.5 rounded-full font-mono font-semibold" style={{ backgroundColor: `${currentTheme.accent}20`, color: currentTheme.accent }}>
+                {gridMode === 'complex'
+                  ? 'ℂ Argand Plane'
+                  : gridMode === 'complex_vector'
+                  ? '𝔉 Vector Field'
+                  : gridMode === 'polar'
+                  ? 'Polar (r, θ)'
+                  : gridMode === 'trig'
+                  ? 'Trigonometric (π)'
+                  : 'Cartesian (x, y)'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => onSelectGridMode('cartesian')}
-                className={`py-2 px-3 rounded-lg border text-center transition-all ${
+                className={`py-2 px-2.5 rounded-lg border text-center transition-all ${
                   gridMode === 'cartesian' ? 'font-semibold shadow-xs' : 'opacity-70 hover:opacity-100'
                 }`}
                 style={{
@@ -126,12 +139,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   color: gridMode === 'cartesian' ? '#FFFFFF' : currentTheme.textPrimary,
                 }}
               >
-                Cartesian (x, y)
+                <div className="text-xs font-semibold">Cartesian</div>
+                <div className="text-3xs opacity-80">(x, y) Real Axes</div>
               </button>
+
+              <button
+                type="button"
+                onClick={() => onSelectGridMode('complex')}
+                className={`py-2 px-2.5 rounded-lg border text-center transition-all ${
+                  gridMode === 'complex' ? 'font-semibold shadow-xs ring-1 ring-amber-400/40' : 'opacity-70 hover:opacity-100'
+                }`}
+                style={{
+                  backgroundColor: gridMode === 'complex' ? currentTheme.accent : 'transparent',
+                  borderColor: currentTheme.border,
+                  color: gridMode === 'complex' ? '#FFFFFF' : currentTheme.textPrimary,
+                }}
+              >
+                <div className="text-xs font-semibold flex items-center justify-center gap-1">
+                  <span>ℂ Complex Plane</span>
+                </div>
+                <div className="text-3xs opacity-80">Re(z) & Im(z) Argand</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onSelectGridMode('complex_vector')}
+                className={`py-2 px-2.5 rounded-lg border text-center transition-all ${
+                  gridMode === 'complex_vector' ? 'font-semibold shadow-xs ring-1 ring-cyan-400/40' : 'opacity-70 hover:opacity-100'
+                }`}
+                style={{
+                  backgroundColor: gridMode === 'complex_vector' ? currentTheme.accent : 'transparent',
+                  borderColor: currentTheme.border,
+                  color: gridMode === 'complex_vector' ? '#FFFFFF' : currentTheme.textPrimary,
+                }}
+              >
+                <div className="text-xs font-semibold">𝔉 Vector Field</div>
+                <div className="text-3xs opacity-80">Flow & Polya Needles</div>
+              </button>
+
               <button
                 type="button"
                 onClick={() => onSelectGridMode('polar')}
-                className={`py-2 px-3 rounded-lg border text-center transition-all ${
+                className={`py-2 px-2.5 rounded-lg border text-center transition-all ${
                   gridMode === 'polar' ? 'font-semibold shadow-xs' : 'opacity-70 hover:opacity-100'
                 }`}
                 style={{
@@ -140,12 +189,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   color: gridMode === 'polar' ? '#FFFFFF' : currentTheme.textPrimary,
                 }}
               >
-                Polar (r, θ)
+                <div className="text-xs font-semibold">Polar Grid</div>
+                <div className="text-3xs opacity-80">(r, θ) Concentric</div>
               </button>
+
               <button
                 type="button"
                 onClick={() => onSelectGridMode('trig')}
-                className={`py-2 px-3 rounded-lg border text-center transition-all ${
+                className={`py-2 px-2.5 rounded-lg border text-center transition-all col-span-2 sm:col-span-2 ${
                   gridMode === 'trig' ? 'font-semibold shadow-xs' : 'opacity-70 hover:opacity-100'
                 }`}
                 style={{
@@ -154,7 +205,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   color: gridMode === 'trig' ? '#FFFFFF' : currentTheme.textPrimary,
                 }}
               >
-                Trigonometric (π)
+                <div className="text-xs font-semibold">Trigonometric Grid</div>
+                <div className="text-3xs opacity-80">Horizontal Multiples of π (π/4, π/2, π, 2π)</div>
               </button>
             </div>
           </div>

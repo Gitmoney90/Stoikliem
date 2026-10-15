@@ -309,13 +309,14 @@ export default function App() {
 
   // Expression Handlers
   const handleAddExpression = (
-    typeHint: 'function' | 'slider' | 'parametric' | 'polar' = 'function'
+    typeHint: 'function' | 'slider' | 'parametric' | 'polar' | 'vector' | 'fractal' = 'function'
   ) => {
     const newId = `expr_${Date.now()}`;
     const nextColor = theme.curvePalette[expressions.length % theme.curvePalette.length];
 
     let defaultText = 'y = x^2 - 4';
     let type: any = 'explicit';
+    let fractalType: any = undefined;
 
     if (typeHint === 'slider') {
       const letters = 'bckmnpqr';
@@ -329,6 +330,20 @@ export default function App() {
     } else if (typeHint === 'polar') {
       defaultText = 'r = 2 * (1 - cos(theta))';
       type = 'polar';
+    } else if (typeHint === 'vector') {
+      defaultText = '( x^2 - y^2 - 1, 2*x*y )';
+      type = 'complex_vector';
+    } else if (typeHint === 'fractal') {
+      defaultText = 'fractal: mandelbrot';
+      type = 'fractal';
+      fractalType = 'mandelbrot';
+    } else if (gridMode === 'complex_vector') {
+      defaultText = '( -y / (x^2 + y^2), x / (x^2 + y^2) )';
+      type = 'complex_vector';
+    } else if (gridMode === 'complex') {
+      defaultText = 'fractal: mandelbrot';
+      type = 'fractal';
+      fractalType = 'mandelbrot';
     }
 
     const newExpr: GraphExpression = {
@@ -337,6 +352,8 @@ export default function App() {
       color: nextColor,
       visible: true,
       type,
+      fractalType,
+      maxIterations: type === 'fractal' ? 75 : undefined,
       sliderValue: typeHint === 'slider' ? 1 : undefined,
       sliderMin: -10,
       sliderMax: 10,
@@ -397,7 +414,13 @@ export default function App() {
       rawText: exp.rawText,
       color: exp.color || theme.curvePalette[idx % theme.curvePalette.length],
       visible: true,
-      type: 'explicit',
+      type: exp.fractalType
+        ? 'fractal'
+        : exp.pointX !== undefined
+        ? 'point'
+        : exp.isPolya
+        ? 'complex_vector'
+        : (exp.type || 'explicit'),
       sliderValue: exp.sliderValue,
       sliderMin: exp.sliderMin ?? -10,
       sliderMax: exp.sliderMax ?? 10,
@@ -410,6 +433,14 @@ export default function App() {
       showIntegral: exp.showIntegral,
       integralA: exp.integralA,
       integralB: exp.integralB,
+      isPolya: exp.isPolya,
+      fractalType: exp.fractalType,
+      juliaCr: exp.juliaCr,
+      juliaCi: exp.juliaCi,
+      maxIterations: exp.maxIterations,
+      pointX: exp.pointX,
+      pointY: exp.pointY,
+      pointLabel: exp.pointLabel,
     }));
 
     setExpressions(loaded);
@@ -426,6 +457,8 @@ export default function App() {
       yMin: preset.viewport.yMin,
       yMax: preset.viewport.yMax,
     }));
+
+    showToast(`Loaded: ${preset.name}`);
   };
 
   // Add multiple plotted point expressions from Value Table
@@ -587,6 +620,8 @@ export default function App() {
       <TopNav
         theme={theme}
         themeId={themeId}
+        gridMode={gridMode}
+        onSelectGridMode={setGridMode}
         onToggleTheme={() => setThemeId(themeId === 'slate' || themeId === 'engraving' ? 'parchment' : 'slate')}
         onOpenPresets={() => setIsPresetsOpen(true)}
         onToggleAnalysis={() => setIsAnalysisOpen(!isAnalysisOpen)}
@@ -693,6 +728,9 @@ export default function App() {
             angleUnit={angleUnit}
             activeExpressionId={activeExpressionId}
             onSelectExpression={(id) => setActiveExpressionId(id)}
+            onSelectGridMode={setGridMode}
+            onLoadPreset={handleLoadPreset}
+            onOpenPresets={() => setIsPresetsOpen(true)}
           />
 
           {/* Calculus Studio Drawer */}
@@ -734,6 +772,8 @@ export default function App() {
         isKeypadOpen={isKeypadOpen}
         onToggleKeypad={() => setIsKeypadOpen(!isKeypadOpen)}
         onOpenResearch={() => setIsResearchOpen(true)}
+        gridMode={gridMode}
+        onSelectGridMode={setGridMode}
       />
 
       {/* Classical Curve Presets Gallery Modal */}

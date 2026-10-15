@@ -185,6 +185,11 @@ export interface ParsedEquationInfo {
   // For parametric (x(t), y(t)):
   evalParametricX?: CompiledMathFn;
   evalParametricY?: CompiledMathFn;
+  // For complex vector fields:
+  evalVectorU?: (x: number, y: number, scope: EvalScope) => number;
+  evalVectorV?: (x: number, y: number, scope: EvalScope) => number;
+  // For fractals:
+  fractalType?: 'mandelbrot' | 'julia' | 'newton';
   // For variable slider:
   variableName?: string;
   variableValue?: number;
@@ -205,6 +210,34 @@ export function parseEquation(
   const text = rawInput.trim();
   if (!text) {
     throw new Error('Empty equation');
+  }
+
+  // 0. Check for Fractals
+  if (/^(?:fractal\s*:\s*)?mandelbrot/i.test(text)) {
+    return {
+      type: 'fractal',
+      inequality: 'none',
+      fractalType: 'mandelbrot',
+      displayFormula: 'Mandelbrot: z_{n+1} = z_n^2 + c',
+    };
+  }
+
+  if (/^(?:fractal\s*:\s*)?julia/i.test(text)) {
+    return {
+      type: 'fractal',
+      inequality: 'none',
+      fractalType: 'julia',
+      displayFormula: 'Julia Curve: z_{n+1} = z_n^2 + c',
+    };
+  }
+
+  if (/^(?:fractal\s*:\s*)?newton/i.test(text)) {
+    return {
+      type: 'fractal',
+      inequality: 'none',
+      fractalType: 'newton',
+      displayFormula: "Newton Fractal: z^3 - 1 = 0",
+    };
   }
 
   // 1. Check for Point: e.g. (2, 3) or ( -1.5, 4.2 )
@@ -231,6 +264,66 @@ export function parseEquation(
       evalParametricY: fnY,
       displayFormula: `(${parametricTuple[1]}, ${parametricTuple[2]})`,
     };
+  }
+
+  // 2b. Check for Complex Vector Field: V = (u, v), F(x, y) = (u, v), or (u(x, y), v(x, y))
+  const vectorFieldMatch = text.match(/^(?:(?:[Vv]|[Ff](?:\s*\(\s*[xy,\s]*\))?)\s*=\s*)?\(\s*(.+?)\s*,\s*(.+?)\s*\)$/);
+  if (vectorFieldMatch && (hasVariable(text, 'x') || hasVariable(text, 'y'))) {
+    const fnU = compileExpression(vectorFieldMatch[1], angleUnit);
+    const fnV = compileExpression(vectorFieldMatch[2], angleUnit);
+    return {
+      type: 'complex_vector',
+      inequality: 'none',
+      evalVectorU: (x, y, scope) => fnU(x, y, 0, 0, scope),
+      evalVectorV: (x, y, scope) => fnV(x, y, 0, 0, scope),
+      displayFormula: `V(x, y) = (${vectorFieldMatch[1]}, ${vectorFieldMatch[2]})`,
+    };
+  }
+
+  // 2c. Check for Complex function f(z) = ... or w = ...
+  const complexFuncMatch = text.match(/^(?:f\s*\(\s*z\s*\)|w)\s*=\s*(.+)$/i);
+  if (complexFuncMatch) {
+    const rhs = complexFuncMatch[1].trim();
+    // Default approximations for common complex analytic mappings
+    if (/^z\s*\^\s*2\s*-\s*1$/i.test(rhs)) {
+      return {
+        type: 'complex_vector',
+        inequality: 'none',
+        evalVectorU: (x, y) => x * x - y * y - 1,
+        evalVectorV: (x, y) => 2 * x * y,
+        displayFormula: `f(z) = z^2 - 1`,
+      };
+    } else if (/^1\s*\/\s*z$/i.test(rhs)) {
+      return {
+        type: 'complex_vector',
+        inequality: 'none',
+        evalVectorU: (x, y) => {
+          const r2 = x * x + y * y;
+          return r2 === 0 ? 0 : x / r2;
+        },
+        evalVectorV: (x, y) => {
+          const r2 = x * x + y * y;
+          return r2 === 0 ? 0 : -y / r2;
+        },
+        displayFormula: `f(z) = 1/z (Dipole Polya)`,
+      };
+    } else if (/^z\s*\^\s*2$/i.test(rhs)) {
+      return {
+        type: 'complex_vector',
+        inequality: 'none',
+        evalVectorU: (x, y) => x * x - y * y,
+        evalVectorV: (x, y) => 2 * x * y,
+        displayFormula: `f(z) = z^2`,
+      };
+    } else if (/^exp\s*\(\s*z\s*\)$/i.test(rhs)) {
+      return {
+        type: 'complex_vector',
+        inequality: 'none',
+        evalVectorU: (x, y) => Math.exp(x) * Math.cos(y),
+        evalVectorV: (x, y) => Math.exp(x) * Math.sin(y),
+        displayFormula: `f(z) = e^z`,
+      };
+    }
   }
 
   // 3. Check for Parametric separated by comma: x = cos(t), y = sin(t)

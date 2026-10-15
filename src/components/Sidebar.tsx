@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GraphExpression, ThemeConfig } from '../types/graph';
 import { ParsedEquationInfo } from '../math/evaluator';
 import { ExpressionItem } from './ExpressionItem';
 import { VirtualKeypad } from './VirtualKeypad';
-import { Plus, Sliders, Hash, X } from 'lucide-react';
+import { Plus, Sliders, Hash, X, ChevronDown, Compass, Sparkles } from 'lucide-react';
 
 interface SidebarProps {
   expressions: GraphExpression[];
@@ -13,7 +13,7 @@ interface SidebarProps {
   isOpen: boolean;
   onToggleSidebar: () => void;
   onSelectExpression: (id: string) => void;
-  onAddExpression: (typeHint?: 'function' | 'slider' | 'parametric' | 'polar') => void;
+  onAddExpression: (typeHint?: 'function' | 'slider' | 'parametric' | 'polar' | 'vector' | 'fractal') => void;
   onUpdateText: (id: string, text: string) => void;
   onToggleVisible: (id: string) => void;
   onChangeColor: (id: string, color: string) => void;
@@ -52,6 +52,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenCAS,
   onAddExpressionWithText,
 }) => {
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setIsAddMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
+  }, []);
+
   return (
     <>
       {/* Mobile Backdrop Overlay */}
@@ -80,18 +93,134 @@ export const Sidebar: React.FC<SidebarProps> = ({
           style={{ borderColor: theme.border }}
         >
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => onAddExpression('function')}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg shadow-xs transition-transform active:scale-95 hover:opacity-90 min-h-[40px]"
-              style={{
-                backgroundColor: theme.accent,
-                color: '#FFFFFF',
-              }}
-              aria-label="Add Equation Item"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Item</span>
-            </button>
+            {/* Split / Dropdown Add Equation Button */}
+            <div className="relative" ref={addMenuRef}>
+              <div className="flex items-center rounded-lg shadow-xs overflow-hidden" style={{ backgroundColor: theme.accent }}>
+                <button
+                  type="button"
+                  onClick={() => onAddExpression('function')}
+                  className="flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 min-h-[40px] active:scale-95"
+                  aria-label="Add Equation Item"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Item</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
+                  title="Choose Equation Type (Vector, Fractal, Parametric, Polar, Slider)"
+                  className="px-1.5 py-2 text-white border-l border-white/20 hover:bg-black/10 min-h-[40px] transition-colors"
+                  aria-label="More Equation Types"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {isAddMenuOpen && (
+                <div
+                  className="absolute left-0 top-full mt-1.5 w-60 p-1.5 rounded-xl border shadow-2xl z-50 flex flex-col gap-0.5 text-xs animate-in fade-in zoom-in-95 duration-100"
+                  style={{
+                    backgroundColor: theme.bgCard,
+                    borderColor: theme.border,
+                    color: theme.textPrimary,
+                  }}
+                >
+                  <div className="px-2 py-1 text-3xs uppercase tracking-wider font-bold opacity-60 border-b pb-1 mb-0.5" style={{ borderColor: theme.border }}>
+                    Add Mathematical Expression
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAddExpression('function');
+                      setIsAddMenuOpen(false);
+                    }}
+                    className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <span className="font-mono text-amber-500 font-bold">y=</span>
+                    <div className="flex flex-col">
+                      <span className="font-semibold">Explicit Curve</span>
+                      <span className="text-3xs opacity-65">y = f(x) or x = g(y)</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAddExpression('vector');
+                      setIsAddMenuOpen(false);
+                    }}
+                    className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <span className="font-mono text-cyan-500 font-bold">𝔉</span>
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-cyan-700 dark:text-cyan-400">Complex Vector Field</span>
+                      <span className="text-3xs opacity-65">Polya flow (u, v) phase needles</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAddExpression('fractal');
+                      setIsAddMenuOpen(false);
+                    }}
+                    className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <span className="font-mono text-amber-500 font-bold">ℂ</span>
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-amber-700 dark:text-amber-400">ℂ Fractal Set</span>
+                      <span className="text-3xs opacity-65">Mandelbrot, Julia curves, Newton</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAddExpression('slider');
+                      setIsAddMenuOpen(false);
+                    }}
+                    className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-indigo-500" />
+                    <div className="flex flex-col">
+                      <span className="font-semibold">Parameter Slider</span>
+                      <span className="text-3xs opacity-65">Dynamic variable constant a, b, c</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAddExpression('polar');
+                      setIsAddMenuOpen(false);
+                    }}
+                    className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <span className="font-mono text-rose-500 font-bold">r=</span>
+                    <div className="flex flex-col">
+                      <span className="font-semibold">Polar Equation</span>
+                      <span className="text-3xs opacity-65">r = f(θ) angle coordinates</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAddExpression('parametric');
+                      setIsAddMenuOpen(false);
+                    }}
+                    className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <span className="font-mono text-emerald-500 font-bold">(t)</span>
+                    <div className="flex flex-col">
+                      <span className="font-semibold">Parametric Curve</span>
+                      <span className="text-3xs opacity-65">( x(t), y(t) ) interval locus</span>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
 
             <button
               onClick={() => onAddExpression('slider')}
@@ -137,6 +266,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             Quick:
           </span>
           {[
+            { label: 'ℂ Mandelbrot', text: 'fractal: mandelbrot' },
+            { label: 'ℂ Julia', text: 'fractal: julia' },
+            { label: '𝔉 Vector Flow', text: '(x^2 - y^2, 2*x*y)' },
             { label: 'sin(x)', text: 'y = sin(x)' },
             { label: 'x² - 4', text: 'y = x^2 - 4' },
             { label: 'e^(-x²)', text: 'y = exp(-x^2)' },
@@ -154,7 +286,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="px-2 py-0.5 rounded-md border font-mono whitespace-nowrap hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all text-3xs"
               style={{
                 borderColor: theme.border,
-                color: theme.textSecondary,
+                color: item.label.startsWith('ℂ') ? '#D97706' : item.label.startsWith('𝔉') ? '#0284C7' : theme.textSecondary,
                 backgroundColor: theme.bgSidebar,
               }}
             >

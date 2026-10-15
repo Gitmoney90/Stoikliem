@@ -23,8 +23,18 @@ import {
   Activity,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Sliders,
 } from 'lucide-react';
+import {
+  computeComplexVectorGrid,
+  phaseToColor,
+  renderMandelbrotToContext,
+  renderJuliaToContext,
+  renderNewtonToContext,
+  formatComplex,
+} from '../math/complex';
+import { CurvePreset, CLASSIC_PRESETS } from '../math/presets';
 
 interface GraphCanvasProps {
   viewport: Viewport;
@@ -38,6 +48,9 @@ interface GraphCanvasProps {
   angleUnit: 'rad' | 'deg';
   activeExpressionId: string | null;
   onSelectExpression: (id: string) => void;
+  onSelectGridMode?: (mode: GridMode) => void;
+  onLoadPreset?: (preset: CurvePreset) => void;
+  onOpenPresets?: () => void;
 }
 
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
@@ -52,9 +65,16 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   angleUnit,
   activeExpressionId,
   onSelectExpression,
+  onSelectGridMode,
+  onLoadPreset,
+  onOpenPresets,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Plane selector & Unique graphs menu state
+  const [isPlaneMenuOpen, setIsPlaneMenuOpen] = useState(false);
+  const [isUniqueGraphsMenuOpen, setIsUniqueGraphsMenuOpen] = useState(false);
 
   // Interaction states
   const [isDragging, setIsDragging] = useState(false);
@@ -78,6 +98,21 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const initialPinchDistRef = useRef<number | null>(null);
   const initialPinchViewportRef = useRef<Viewport | null>(null);
+
+  // Close menus on click outside
+  useEffect(() => {
+    const handleDocumentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest('.plane-menu-container')) {
+        setIsPlaneMenuOpen(false);
+      }
+      if (target && !target.closest('.unique-graphs-menu-container')) {
+        setIsUniqueGraphsMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleDocumentClick);
+    return () => document.removeEventListener('pointerdown', handleDocumentClick);
+  }, []);
 
   // Coordinate transforms
   const worldToScreen = useCallback(
@@ -155,11 +190,41 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     ctx.fillStyle = theme.bgCanvas;
     ctx.fillRect(0, 0, viewport.width, viewport.height);
 
-    // 2. Draw Coordinates Grid (Cartesian or Polar)
+    // 1b. Render Fractals (Mandelbrot, Julia, Newton) if any visible fractal expression exists
+    expressions.forEach((expr) => {
+      if (!expr.visible) return;
+      const parsed = parsedEquations.get(expr.id);
+      if (!parsed || parsed.type !== 'fractal') return;
+
+      const maxIter = expr.maxIterations || (isDragging ? 35 : 75);
+      const downsample = isDragging ? 3 : 1;
+
+      if (parsed.fractalType === 'mandelbrot') {
+        renderMandelbrotToContext(ctx, viewport, theme, maxIter, downsample);
+      } else if (parsed.fractalType === 'julia') {
+        const cr = scope['cr'] ?? expr.juliaCr ?? -0.123;
+        const ci = scope['ci'] ?? expr.juliaCi ?? 0.745;
+        renderJuliaToContext(ctx, viewport, theme, cr, ci, maxIter, downsample);
+      } else if (parsed.fractalType === 'newton') {
+        renderNewtonToContext(ctx, viewport, theme, 35, downsample);
+      }
+    });
+
+    // 2. Draw Coordinates Grid (Cartesian, Polar, Complex Argand)
     if (gridMode === 'polar') {
       drawPolarGrid(ctx, viewport, theme);
+    } else if (gridMode === 'complex' || gridMode === 'complex_vector') {
+      drawComplexGrid(ctx, viewport, theme, showMinorGrid);
     } else {
       drawCartesianGrid(ctx, viewport, theme, gridMode === 'trig', showMinorGrid);
+    }
+
+    // 2b. Render Complex Vector Field if in vector mode or any vector expression exists
+    const hasVectorField =
+      gridMode === 'complex_vector' ||
+      expressions.some((e) => e.visible && parsedEquations.get(e.id)?.type === 'complex_vector');
+    if (hasVectorField) {
+      drawComplexVectorField(ctx, viewport, theme, expressions, parsedEquations, scope, isDragging);
     }
 
     // 3. Render Shaded Regions & Inequalities first (underneath curve lines)
@@ -713,6 +778,203 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           </button>
         ) : (
           <div className="flex items-center gap-1 p-1 bg-stone-900/85 hover:bg-stone-900/95 backdrop-blur-md rounded-xl border border-stone-700/60 shadow-lg text-stone-300 text-3xs sm:text-2xs font-medium transition-all">
+            {/* Plane Type Switcher Dropdown */}
+            {onSelectGridMode && (
+              <div className="relative plane-menu-container">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPlaneMenuOpen(!isPlaneMenuOpen);
+                    setIsUniqueGraphsMenuOpen(false);
+                  }}
+                  title="Switch Plane Type: Cartesian, Complex Plane, Vector Field, Polar, Trig"
+                  className={`px-2 py-1 rounded-lg flex items-center gap-1 transition-all active:scale-95 font-semibold ${
+                    gridMode === 'complex' || gridMode === 'complex_vector'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs'
+                      : 'hover:text-white hover:bg-stone-800 text-stone-200'
+                  }`}
+                >
+                  <Compass className="w-3 h-3 text-amber-500 shrink-0" />
+                  <span>
+                    {gridMode === 'complex'
+                      ? 'ℂ Complex'
+                      : gridMode === 'complex_vector'
+                      ? '𝔉 Vector Field'
+                      : gridMode === 'polar'
+                      ? '◎ Polar'
+                      : gridMode === 'trig'
+                      ? '∿ Trig'
+                      : '☩ Cartesian'}
+                  </span>
+                  <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                </button>
+
+                {/* Dropdown Menu for Plane Types */}
+                {isPlaneMenuOpen && (
+                  <div className="absolute top-full left-0 mt-1.5 w-52 p-1.5 bg-stone-900/95 backdrop-blur-md rounded-xl border border-stone-700/70 shadow-2xl z-50 flex flex-col gap-0.5 text-xs text-stone-200 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="px-2 py-1 text-3xs uppercase tracking-wider font-bold text-stone-400 border-b border-stone-800">
+                      Coordinate Plane Type
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectGridMode('cartesian');
+                        setIsPlaneMenuOpen(false);
+                      }}
+                      className={`px-2 py-1.5 rounded-lg flex items-center justify-between text-left transition-colors ${
+                        gridMode === 'cartesian' ? 'bg-amber-500/20 text-amber-400 font-semibold' : 'hover:bg-stone-800'
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span>☩ Cartesian Plane</span>
+                        <span className="text-3xs text-stone-400">(x, y) Standard Axes</span>
+                      </div>
+                      {gridMode === 'cartesian' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectGridMode('complex');
+                        setIsPlaneMenuOpen(false);
+                      }}
+                      className={`px-2 py-1.5 rounded-lg flex items-center justify-between text-left transition-colors ${
+                        gridMode === 'complex' ? 'bg-amber-500/20 text-amber-400 font-semibold ring-1 ring-amber-400/30' : 'hover:bg-stone-800'
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-amber-300">ℂ Complex Plane</span>
+                        <span className="text-3xs text-stone-400">Re(z) & Im(z) Argand diagram</span>
+                      </div>
+                      {gridMode === 'complex' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectGridMode('complex_vector');
+                        setIsPlaneMenuOpen(false);
+                      }}
+                      className={`px-2 py-1.5 rounded-lg flex items-center justify-between text-left transition-colors ${
+                        gridMode === 'complex_vector' ? 'bg-cyan-500/20 text-cyan-400 font-semibold ring-1 ring-cyan-400/30' : 'hover:bg-stone-800'
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-cyan-300">𝔉 Complex Vector Field</span>
+                        <span className="text-3xs text-stone-400">Polya flow & phase needles</span>
+                      </div>
+                      {gridMode === 'complex_vector' && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectGridMode('polar');
+                        setIsPlaneMenuOpen(false);
+                      }}
+                      className={`px-2 py-1.5 rounded-lg flex items-center justify-between text-left transition-colors ${
+                        gridMode === 'polar' ? 'bg-amber-500/20 text-amber-400 font-semibold' : 'hover:bg-stone-800'
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span>◎ Polar Coordinates</span>
+                        <span className="text-3xs text-stone-400">(r, θ) Concentric Circles</span>
+                      </div>
+                      {gridMode === 'polar' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectGridMode('trig');
+                        setIsPlaneMenuOpen(false);
+                      }}
+                      className={`px-2 py-1.5 rounded-lg flex items-center justify-between text-left transition-colors ${
+                        gridMode === 'trig' ? 'bg-amber-500/20 text-amber-400 font-semibold' : 'hover:bg-stone-800'
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span>∿ Trigonometric Grid</span>
+                        <span className="text-3xs text-stone-400">Multiples of π</span>
+                      </div>
+                      {gridMode === 'trig' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Quick Button for Preloaded Unique Graphs & Fractals */}
+            {onLoadPreset && (
+              <div className="relative unique-graphs-menu-container">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUniqueGraphsMenuOpen(!isUniqueGraphsMenuOpen);
+                    setIsPlaneMenuOpen(false);
+                  }}
+                  title="Load Unique Graphs: Mandelbrot, Julia Curves & Vector Fields"
+                  className={`px-2 py-1 rounded-lg flex items-center gap-1 transition-all active:scale-95 font-medium ${
+                    gridMode === 'complex' || gridMode === 'complex_vector'
+                      ? 'bg-amber-500/25 text-amber-300 hover:bg-amber-500/35 border border-amber-500/40 font-semibold shadow-xs'
+                      : 'hover:text-white hover:bg-stone-800 text-stone-300'
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
+                  <span className="hidden sm:inline">Unique Graphs</span>
+                  <span className="sm:hidden">Graphs</span>
+                  <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                </button>
+
+                {isUniqueGraphsMenuOpen && (
+                  <div className="absolute top-full left-0 mt-1.5 w-64 p-1.5 bg-stone-900/95 backdrop-blur-md rounded-xl border border-stone-700/70 shadow-2xl z-50 flex flex-col gap-0.5 text-xs text-stone-200 animate-in fade-in zoom-in-95 duration-100 max-h-[72vh] overflow-y-auto">
+                    <div className="px-2 py-1 flex items-center justify-between border-b border-stone-800 shrink-0">
+                      <span className="text-3xs uppercase tracking-wider font-bold text-amber-400">
+                        Unique Complex & Fractal Graphs
+                      </span>
+                      {onOpenPresets && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsUniqueGraphsMenuOpen(false);
+                            onOpenPresets();
+                          }}
+                          className="text-3xs text-stone-400 hover:text-white underline cursor-pointer"
+                        >
+                          All Presets
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Pre-loaded unique graphs */}
+                    {CLASSIC_PRESETS.filter((p) => p.category === 'Complex Plane & Fractals').map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          onLoadPreset(preset);
+                          setIsUniqueGraphsMenuOpen(false);
+                        }}
+                        className="px-2 py-1.5 rounded-lg hover:bg-stone-800 text-left transition-colors flex flex-col gap-0.5 group cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between font-semibold group-hover:text-amber-300 text-stone-200">
+                          <span className="truncate">{preset.name}</span>
+                          <span className="text-3xs px-1 rounded bg-stone-800 text-stone-400 shrink-0 ml-1">
+                            {preset.gridMode === 'complex_vector' ? 'Vector' : 'Argand'}
+                          </span>
+                        </div>
+                        <div className="text-3xs text-stone-400 line-clamp-1">
+                          {preset.description}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <span className="w-px h-3.5 bg-stone-700/60 mx-0.5 hidden xs:inline" />
+
             <button
               onClick={handleRecenterOrigin}
               title="Recenter Origin (0,0)"
@@ -874,9 +1136,27 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       {/* Real-time Cursor Coordinates Readout */}
       {hoverCoord && (
         <div className="absolute left-3 sm:left-4 bottom-20 md:bottom-4 pointer-events-none px-2.5 py-1 bg-stone-900/85 backdrop-blur-md rounded-md border border-stone-700/60 shadow-sm text-2xs sm:text-xs font-mono tabular-nums text-stone-300 flex items-center gap-2 sm:gap-3 z-10">
-          <span>X: {hoverCoord.x.toFixed(3)}</span>
-          <span className="text-stone-600">|</span>
-          <span>Y: {hoverCoord.y.toFixed(3)}</span>
+          {gridMode === 'complex' || gridMode === 'complex_vector' ? (
+            <>
+              <span className="text-amber-400 font-semibold">z = {formatComplex(hoverCoord.x, hoverCoord.y)}</span>
+              <span className="text-stone-600">|</span>
+              <span>|z|: {Math.hypot(hoverCoord.x, hoverCoord.y).toFixed(3)}</span>
+              <span className="text-stone-600">|</span>
+              <span>arg: {Math.atan2(hoverCoord.y, hoverCoord.x).toFixed(3)} rad</span>
+            </>
+          ) : gridMode === 'polar' ? (
+            <>
+              <span>r: {Math.hypot(hoverCoord.x, hoverCoord.y).toFixed(3)}</span>
+              <span className="text-stone-600">|</span>
+              <span>θ: {Math.atan2(hoverCoord.y, hoverCoord.x).toFixed(3)} rad</span>
+            </>
+          ) : (
+            <>
+              <span>X: {hoverCoord.x.toFixed(3)}</span>
+              <span className="text-stone-600">|</span>
+              <span>Y: {hoverCoord.y.toFixed(3)}</span>
+            </>
+          )}
           {isTraceModeActive && (
             <>
               <span className="text-stone-600">|</span>
@@ -1099,6 +1379,251 @@ function drawPolarGrid(ctx: CanvasRenderingContext2D, vp: Viewport, theme: Theme
   ctx.moveTo(centerScreen.x, 0);
   ctx.lineTo(centerScreen.x, height);
   ctx.stroke();
+}
+
+function drawComplexGrid(
+  ctx: CanvasRenderingContext2D,
+  vp: Viewport,
+  theme: ThemeConfig,
+  showMinor: boolean
+) {
+  const { xMin, xMax, yMin, yMax, width, height } = vp;
+
+  // Grid steps
+  const stepX = calculateOptimalGridStep(xMax - xMin, 8);
+  const stepY = calculateOptimalGridStep(yMax - yMin, 8);
+
+  // 1. Minor Grid
+  if (showMinor) {
+    ctx.strokeStyle = theme.gridMinor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const minorStepX = stepX / 5;
+    const startX = Math.floor(xMin / minorStepX) * minorStepX;
+    for (let x = startX; x <= xMax; x += minorStepX) {
+      const sx = ((x - xMin) / (xMax - xMin)) * width;
+      ctx.moveTo(sx, 0);
+      ctx.lineTo(sx, height);
+    }
+    const minorStepY = stepY / 5;
+    const startY = Math.floor(yMin / minorStepY) * minorStepY;
+    for (let y = startY; y <= yMax; y += minorStepY) {
+      const sy = ((yMax - y) / (yMax - yMin)) * height;
+      ctx.moveTo(0, sy);
+      ctx.lineTo(width, sy);
+    }
+    ctx.stroke();
+  }
+
+  // 2. Major Grid Lines
+  ctx.strokeStyle = theme.gridMajor;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  const startMajorX = Math.floor(xMin / stepX) * stepX;
+  for (let x = startMajorX; x <= xMax; x += stepX) {
+    const sx = ((x - xMin) / (xMax - xMin)) * width;
+    ctx.moveTo(sx, 0);
+    ctx.lineTo(sx, height);
+  }
+  const startMajorY = Math.floor(yMin / stepY) * stepY;
+  for (let y = startMajorY; y <= yMax; y += stepY) {
+    const sy = ((yMax - y) / (yMax - yMin)) * height;
+    ctx.moveTo(0, sy);
+    ctx.lineTo(width, sy);
+  }
+  ctx.stroke();
+
+  // 3. Concentric Modulus Circles (|z| = 1, 2, 3...)
+  const scaleX = width / (xMax - xMin);
+  const originSx = ((-xMin) / (xMax - xMin)) * width;
+  const originSy = ((yMax) / (yMax - yMin)) * height;
+
+  ctx.save();
+  const maxR = Math.max(
+    Math.hypot(xMin, yMin),
+    Math.hypot(xMax, yMax),
+    Math.hypot(xMin, yMax),
+    Math.hypot(xMax, yMin)
+  );
+  const ringStep = calculateOptimalGridStep(maxR, 6);
+
+  ctx.strokeStyle =
+    theme.id === 'slate' || theme.id === 'engraving'
+      ? 'rgba(255, 255, 255, 0.08)'
+      : 'rgba(0, 0, 0, 0.07)';
+  ctx.setLineDash([3, 4]);
+  ctx.lineWidth = 1.0;
+  for (let r = ringStep; r <= maxR; r += ringStep) {
+    ctx.beginPath();
+    ctx.arc(originSx, originSy, r * scaleX, 0, 2 * Math.PI);
+    ctx.stroke();
+  }
+
+  // Prominent Unit Circle |z| = 1
+  if (scaleX > 4) {
+    ctx.strokeStyle =
+      theme.id === 'slate' || theme.id === 'engraving'
+        ? 'rgba(245, 158, 11, 0.5)'
+        : 'rgba(180, 83, 9, 0.5)';
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(originSx, originSy, 1.0 * scaleX, 0, 2 * Math.PI);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 4. Main Axes: Real Axis (Re) & Imaginary Axis (Im)
+  ctx.strokeStyle = theme.gridAxis;
+  ctx.lineWidth = 2.0;
+  ctx.beginPath();
+
+  // Imaginary axis (vertical, where Re(z) = 0)
+  if (xMin <= 0 && xMax >= 0) {
+    ctx.moveTo(originSx, 0);
+    ctx.lineTo(originSx, height);
+  }
+
+  // Real axis (horizontal, where Im(z) = 0)
+  if (yMin <= 0 && yMax >= 0) {
+    ctx.moveTo(0, originSy);
+    ctx.lineTo(width, originSy);
+  }
+  ctx.stroke();
+
+  // 5. Axis Tick Numbers
+  ctx.font = '11px "JetBrains Mono", monospace';
+  ctx.fillStyle = theme.axisText;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  const axisScreenY = Math.max(16, Math.min(height - 20, originSy));
+  const axisScreenX = Math.max(32, Math.min(width - 34, originSx));
+
+  // Numbers along Real Axis
+  for (let x = startMajorX; x <= xMax; x += stepX) {
+    if (Math.abs(x) < 1e-9) continue;
+    const sx = ((x - xMin) / (xMax - xMin)) * width;
+    if (sx < 15 || sx > width - 15) continue;
+    ctx.fillText(formatNumber(x), sx, axisScreenY + 4);
+  }
+
+  // Numbers along Imaginary Axis (i, 2i, -i, -2i)
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let y = startMajorY; y <= yMax; y += stepY) {
+    if (Math.abs(y) < 1e-9) continue;
+    const sy = ((yMax - y) / (yMax - yMin)) * height;
+    if (sy < 15 || sy > height - 15) continue;
+
+    let imLabel = '';
+    const roundedY = parseFloat(y.toFixed(6));
+    if (roundedY === 1) imLabel = 'i';
+    else if (roundedY === -1) imLabel = '-i';
+    else imLabel = `${formatNumber(roundedY)}i`;
+
+    ctx.fillText(imLabel, axisScreenX - 6, sy);
+  }
+
+  // Real Axis badge Re(z)
+  ctx.save();
+  ctx.font = 'bold 12px "Source Serif 4", serif';
+  ctx.fillStyle = theme.accent;
+  ctx.textAlign = 'right';
+  ctx.fillText('Re(z)', width - 12, axisScreenY - 14);
+
+  // Imaginary Axis badge Im(z)
+  ctx.textAlign = 'left';
+  ctx.fillText('Im(z)', axisScreenX + 8, 14);
+
+  // Unit circle badge |z|=1
+  if (scaleX > 20 && originSx + scaleX < width - 20) {
+    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.fillStyle = theme.accent;
+    ctx.fillText('|z|=1', originSx + scaleX + 4, axisScreenY - 10);
+  }
+  ctx.restore();
+}
+
+function drawComplexVectorField(
+  ctx: CanvasRenderingContext2D,
+  vp: Viewport,
+  theme: ThemeConfig,
+  expressions: GraphExpression[],
+  parsedEquations: Map<string, ParsedEquationInfo>,
+  scope: EvalScope,
+  isDragging: boolean
+) {
+  let evalU = (x: number, y: number, _s: EvalScope) => x * x - y * y - 1;
+  let evalV = (x: number, y: number, _s: EvalScope) => 2 * x * y;
+  let isPolya = false;
+
+  const vectorExpr = expressions.find(
+    (e) => e.visible && parsedEquations.get(e.id)?.type === 'complex_vector'
+  );
+
+  if (vectorExpr) {
+    const parsed = parsedEquations.get(vectorExpr.id);
+    if (parsed?.evalVectorU && parsed?.evalVectorV) {
+      evalU = parsed.evalVectorU;
+      evalV = parsed.evalVectorV;
+      isPolya = !!vectorExpr.isPolya;
+    }
+  }
+
+  const density = isDragging ? 16 : 22;
+  const points = computeComplexVectorGrid(evalU, evalV, vp, scope, density, isPolya);
+
+  const cellW = vp.width / density;
+  const maxArrowLen = cellW * 0.95;
+
+  ctx.save();
+  points.forEach((pt) => {
+    const mag = pt.magnitude;
+    if (mag <= 1e-7) return;
+
+    // Smooth nonlinear scaling so vectors are visible across magnitudes
+    const scale = Math.tanh(mag * 0.7) * maxArrowLen;
+    const len = Math.max(5, scale);
+
+    const dirX = pt.u / mag;
+    const dirY = pt.v / mag;
+
+    const sx1 = pt.sx - (dirX * len) / 2;
+    const sy1 = pt.sy + (dirY * len) / 2;
+    const sx2 = pt.sx + (dirX * len) / 2;
+    const sy2 = pt.sy - (dirY * len) / 2;
+
+    const color = phaseToColor(pt.phase, theme);
+
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 1.6;
+
+    // Arrow shaft
+    ctx.beginPath();
+    ctx.moveTo(sx1, sy1);
+    ctx.lineTo(sx2, sy2);
+    ctx.stroke();
+
+    // Arrow head
+    const headLen = Math.min(6, len * 0.38);
+    const angle = Math.atan2(sy2 - sy1, sx2 - sx1);
+
+    ctx.beginPath();
+    ctx.moveTo(sx2, sy2);
+    ctx.lineTo(
+      sx2 - headLen * Math.cos(angle - Math.PI / 6),
+      sy2 - headLen * Math.sin(angle - Math.PI / 6)
+    );
+    ctx.lineTo(
+      sx2 - headLen * Math.cos(angle + Math.PI / 6),
+      sy2 - headLen * Math.sin(angle + Math.PI / 6)
+    );
+    ctx.closePath();
+    ctx.fill();
+  });
+  ctx.restore();
 }
 
 function drawExplicitCurveY(

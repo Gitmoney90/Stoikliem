@@ -1,5 +1,5 @@
-import React from 'react';
-import { ThemeConfig, ThemeId } from '../types/graph';
+import React, { useState, useEffect, useRef } from 'react';
+import { ThemeConfig, ThemeId, GridMode } from '../types/graph';
 import { useAuth } from '../context/AuthContext';
 import {
   Share2,
@@ -17,11 +17,15 @@ import {
   Moon,
   Sun,
   Download,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 
 interface TopNavProps {
   theme: ThemeConfig;
   themeId?: ThemeId;
+  gridMode?: GridMode;
+  onSelectGridMode?: (mode: GridMode) => void;
   onToggleTheme?: () => void;
   onOpenPresets: () => void;
   onToggleAnalysis: () => void;
@@ -41,6 +45,8 @@ interface TopNavProps {
 export const TopNav: React.FC<TopNavProps> = ({
   theme,
   themeId,
+  gridMode = 'cartesian',
+  onSelectGridMode,
   onToggleTheme,
   onOpenPresets,
   onToggleAnalysis,
@@ -57,6 +63,18 @@ export const TopNav: React.FC<TopNavProps> = ({
   onOpenResearch,
 }) => {
   const { user, profile } = useAuth();
+  const [isPlaneMenuOpen, setIsPlaneMenuOpen] = useState(false);
+  const planeMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (planeMenuRef.current && !planeMenuRef.current.contains(e.target as Node)) {
+        setIsPlaneMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
+  }, []);
 
   return (
     <header
@@ -150,14 +168,103 @@ export const TopNav: React.FC<TopNavProps> = ({
           <span>Submissions Archive</span>
         </button>
 
-        <button
-          onClick={onOpenSettings}
-          className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1"
-          style={{ color: theme.textSecondary }}
-        >
-          <Compass className="w-3.5 h-3.5" />
-          <span>Cartography & Grid</span>
-        </button>
+        {/* Plane Type & Cartography Dropdown */}
+        <div className="relative" ref={planeMenuRef}>
+          <button
+            onClick={() => {
+              if (onSelectGridMode) {
+                setIsPlaneMenuOpen(!isPlaneMenuOpen);
+              } else {
+                onOpenSettings();
+              }
+            }}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all whitespace-nowrap shrink-0 border ${
+              gridMode === 'complex' || gridMode === 'complex_vector'
+                ? 'font-semibold border-amber-500/40 bg-amber-500/10'
+                : 'border-transparent hover:border-black/10 dark:hover:border-white/10'
+            }`}
+            style={{
+              color:
+                gridMode === 'complex' || gridMode === 'complex_vector'
+                  ? '#D97706'
+                  : theme.textSecondary,
+            }}
+            title="Switch Plane Type (Cartesian, Complex Plane, Vector Field, Polar, Trig)"
+          >
+            <Compass className="w-3.5 h-3.5 text-amber-500" />
+            <span className="font-medium">
+              {gridMode === 'complex'
+                ? 'Plane: Complex ℂ'
+                : gridMode === 'complex_vector'
+                ? 'Plane: Vector Field 𝔉'
+                : gridMode === 'polar'
+                ? 'Plane: Polar'
+                : gridMode === 'trig'
+                ? 'Plane: Trig (π)'
+                : 'Plane: Cartesian'}
+            </span>
+            <ChevronDown className="w-3 h-3 opacity-60" />
+          </button>
+
+          {isPlaneMenuOpen && (
+            <div
+              className="absolute top-full right-0 mt-2 w-56 p-1.5 rounded-xl border shadow-2xl z-50 flex flex-col gap-0.5 text-xs animate-in fade-in zoom-in-95 duration-100"
+              style={{
+                backgroundColor: theme.bgCard,
+                borderColor: theme.border,
+                color: theme.textPrimary,
+              }}
+            >
+              <div className="px-2 py-1 text-3xs uppercase tracking-wider font-bold opacity-60 border-b pb-1 mb-0.5" style={{ borderColor: theme.border }}>
+                Select Coordinate Plane
+              </div>
+
+              {[
+                { id: 'cartesian', label: '☩ Cartesian Plane', sub: '(x, y) Standard Axes' },
+                { id: 'complex', label: 'ℂ Complex Plane', sub: 'Re(z) & Im(z) Argand diagram' },
+                { id: 'complex_vector', label: '𝔉 Complex Vector Field', sub: 'Polya flow & phase needles' },
+                { id: 'polar', label: '◎ Polar Coordinates', sub: '(r, θ) Concentric Circles' },
+                { id: 'trig', label: '∿ Trigonometric Grid', sub: 'Multiples of π' },
+              ].map((p) => {
+                const isSelected = gridMode === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      onSelectGridMode?.(p.id as GridMode);
+                      setIsPlaneMenuOpen(false);
+                    }}
+                    className={`px-2 py-1.5 rounded-lg flex items-center justify-between text-left transition-colors ${
+                      isSelected ? 'font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'hover:bg-black/5 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-xs">{p.label}</span>
+                      <span className="text-3xs opacity-65">{p.sub}</span>
+                    </div>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                  </button>
+                );
+              })}
+
+              <div className="border-t my-1" style={{ borderColor: theme.border }} />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPlaneMenuOpen(false);
+                  onOpenSettings();
+                }}
+                className="px-2 py-1 rounded text-3xs font-medium text-left hover:underline opacity-80 hover:opacity-100 flex items-center gap-1.5"
+                style={{ color: theme.accent }}
+              >
+                <Sliders className="w-3 h-3" />
+                <span>More Grid, Theme & Cartography Settings...</span>
+              </button>
+            </div>
+          )}
+        </div>
       </nav>
 
       {/* Zone 3: Actions & Account Affordance */}
