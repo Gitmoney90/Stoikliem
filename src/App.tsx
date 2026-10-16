@@ -983,6 +983,7 @@ export default function App() {
         theme={theme}
         onShowToast={showToast}
         initialTheoremFormula={proofProverFormula}
+        onPlotFormula={(formula) => handlePlotCASExpression(formula)}
       />
     </div>
   );
