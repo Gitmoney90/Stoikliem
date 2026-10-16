@@ -26,6 +26,7 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { ResearchAnnalsModal } from './components/ResearchAnnalsModal';
 import { TheoryPublicationTab } from './components/TheoryPublicationTab';
 import { SubmissionArchiveTab } from './components/SubmissionArchiveTab';
+import { ProofProverModal } from './components/ProofProverModal';
 import { P2PEngine, P2PConnectionState } from './lib/webrtc';
 import { ChevronLeft, ChevronRight, CheckCircle2, Sparkles } from 'lucide-react';
 
@@ -62,8 +63,15 @@ export default function App() {
   const [isP2PRoomOpen, setIsP2PRoomOpen] = useState(false);
   const [isGraphTheoryOpen, setIsGraphTheoryOpen] = useState(false);
   const [isResearchOpen, setIsResearchOpen] = useState(false);
+  const [isProofProverOpen, setIsProofProverOpen] = useState(false);
+  const [proofProverFormula, setProofProverFormula] = useState<string | undefined>(undefined);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [optimisticSubmissions, setOptimisticSubmissions] = useState<GraphDocument[]>([]);
+
+  const handleOpenProofProver = (formula?: string) => {
+    setProofProverFormula(formula);
+    setIsProofProverOpen(true);
+  };
 
   // WebRTC P2P Engine Instance
   const p2pEngine = useMemo(() => new P2PEngine(), []);
@@ -575,6 +583,21 @@ export default function App() {
     showToast(`Plotted locus for: "${title}"`);
   };
 
+  // Plot 2D slice from GPU 3D Manifold Raymarching
+  const handlePlot2DSlice = (sliceFormula: string, manifoldName: string, sliceZ: number) => {
+    const newId = `expr_slice_${Date.now()}`;
+    const newExpr: GraphExpression = {
+      id: newId,
+      rawText: sliceFormula,
+      color: '#8B5CF6',
+      visible: true,
+      type: 'implicit',
+    };
+    setExpressions((prev) => [newExpr, ...prev]);
+    setActiveExpressionId(newId);
+    showToast(`Implicit slice at z = ${sliceZ.toFixed(2)} (${manifoldName}) plotted on Cartesian canvas`);
+  };
+
   // Virtual Keypad insert & backspace
   const handleInsertKeypadText = (str: string) => {
     if (!activeExpressionId) {
@@ -668,6 +691,7 @@ export default function App() {
         isP2PConnected={p2pConnectionState === 'connected'}
         onOpenGraphTheory={() => setIsGraphTheoryOpen(true)}
         onOpenResearch={() => handleSelectMainTab('theorems')}
+        onOpenProofProver={() => handleOpenProofProver()}
       />
 
       {/* Floating Smooth Toast Feedback Banner */}
@@ -715,6 +739,7 @@ export default function App() {
           }}
           onShowToast={showToast}
           initialPostId={initialPostId}
+          onOpenProofProver={handleOpenProofProver}
         />
       ) : activeMainTab === 'submissions' ? (
         <SubmissionArchiveTab
@@ -792,6 +817,7 @@ export default function App() {
               onSelectGridMode={setGridMode}
               onLoadPreset={handleLoadPreset}
               onOpenPresets={() => setIsPresetsOpen(true)}
+              onPlot2DSlice={handlePlot2DSlice}
             />
 
             {/* Calculus Studio Drawer */}
@@ -808,6 +834,7 @@ export default function App() {
               onUpdateExpressionData={handleUpdateExpressionData}
               onPlotExpression={handlePlotCASExpression}
               onPlotPoint={handlePlotCASPoint}
+              onOpenProofProver={() => handleOpenProofProver()}
             />
           </main>
         </div>
@@ -834,6 +861,7 @@ export default function App() {
         isKeypadOpen={isKeypadOpen}
         onToggleKeypad={() => setIsKeypadOpen(!isKeypadOpen)}
         onOpenResearch={() => handleSelectMainTab('theorems')}
+        onOpenProofProver={() => handleOpenProofProver()}
         gridMode={gridMode}
         onSelectGridMode={setGridMode}
         activeMainTab={activeMainTab}
@@ -946,6 +974,15 @@ export default function App() {
         currentExpressions={expressions}
         onPlotAttachedExpressions={handlePlotAttachedExpressions}
         onShowToast={showToast}
+      />
+
+      {/* Client-Side Zero-API Automated Theorem Prover & Proof Verifier */}
+      <ProofProverModal
+        isOpen={isProofProverOpen}
+        onClose={() => setIsProofProverOpen(false)}
+        theme={theme}
+        onShowToast={showToast}
+        initialTheoremFormula={proofProverFormula}
       />
     </div>
   );

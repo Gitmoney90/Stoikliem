@@ -32,6 +32,7 @@ import {
   Clock,
   Flame,
   Award,
+  ShieldCheck,
 } from 'lucide-react';
 import { ThemeConfig, GraphExpression, Viewport, GridMode, ThemeId } from '../types/graph';
 import { useAuth } from '../context/AuthContext';
@@ -74,6 +75,7 @@ interface TheoryPublicationTabProps {
   onPlotAttachedExpressions: (exprs: GraphExpression[], title: string) => void;
   onShowToast: (msg: string) => void;
   initialPostId?: string | null;
+  onOpenProofProver?: (formula?: string) => void;
 }
 
 export const TheoryPublicationTab: React.FC<TheoryPublicationTabProps> = ({
@@ -86,6 +88,7 @@ export const TheoryPublicationTab: React.FC<TheoryPublicationTabProps> = ({
   onPlotAttachedExpressions,
   onShowToast,
   initialPostId,
+  onOpenProofProver,
 }) => {
   const { user, profile } = useAuth();
   const [posts, setPosts] = useState<ResearchPost[]>([]);
@@ -522,6 +525,22 @@ export const TheoryPublicationTab: React.FC<TheoryPublicationTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {onOpenProofProver && (
+            <button
+              onClick={() => onOpenProofProver()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition-all active:scale-95 hover:bg-black/5 dark:hover:bg-white/5"
+              style={{
+                borderColor: theme.border,
+                color: theme.textPrimary,
+              }}
+              title="Launch Zero-API Automated Proof Prover & Verifier"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="hidden sm:inline">Theorem Proof Verifier</span>
+              <span className="sm:hidden">Proof Prover</span>
+            </button>
+          )}
+
           <button
             onClick={() => setIsPublishingOpen(true)}
             className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-transform active:scale-95"
@@ -1046,10 +1065,25 @@ export const TheoryPublicationTab: React.FC<TheoryPublicationTabProps> = ({
                   {/* LaTeX Mathematical Formula */}
                   {selectedPost.latexStatement && (
                     <div
-                      className="p-5 rounded-xl border text-center shadow-xs overflow-x-auto text-sm sm:text-base"
+                      className="p-5 rounded-xl border text-center shadow-xs overflow-x-auto text-sm sm:text-base space-y-3"
                       style={{ backgroundColor: theme.bgCard, borderColor: theme.border }}
                     >
                       <MathView math={selectedPost.latexStatement} displayMode={true} />
+                      {onOpenProofProver && (
+                        <div className="flex justify-center pt-2 border-t border-dashed" style={{ borderColor: theme.border }}>
+                          <button
+                            onClick={() => onOpenProofProver(selectedPost.latexStatement)}
+                            className="px-3.5 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-semibold text-xs flex items-center gap-1.5 transition-all active:scale-95"
+                            title="Verify this formal theorem statement with the zero-API automated proof prover"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>Verify Statement in Proof Prover</span>
+                            <span className="px-1.5 py-0.2 rounded text-3xs font-mono font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                              Zero-API Q.E.D.
+                            </span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
 

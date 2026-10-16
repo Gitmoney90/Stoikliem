@@ -38,6 +38,7 @@ import {
   ExternalLink,
   Maximize2,
   Minimize2,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface AnalysisPanelProps {
@@ -53,6 +54,7 @@ interface AnalysisPanelProps {
   onUpdateExpressionData: (id: string, data: Partial<GraphExpression>) => void;
   onPlotExpression?: (rawText: string, color?: string) => void;
   onPlotPoint?: (x: number, y: number, label: string, color?: string) => void;
+  onOpenProofProver?: () => void;
 }
 
 type CASTab = 'symbolic' | 'solver' | 'algebra' | 'numerical';
@@ -70,6 +72,7 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
   onUpdateExpressionData,
   onPlotExpression,
   onPlotPoint,
+  onOpenProofProver,
 }) => {
   const [activeTab, setActiveTab] = useState<CASTab>('symbolic');
   const [isExpandedWidth, setIsExpandedWidth] = useState<boolean>(false);
@@ -242,7 +245,20 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
+          {onOpenProofProver && (
+            <button
+              type="button"
+              onClick={onOpenProofProver}
+              title="Launch Client Zero-API Proof Prover & Automated Theorem Verifier"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-3xs font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all active:scale-95"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Proof Prover</span>
+              <span className="px-1 py-0.2 rounded text-4xs font-mono font-bold bg-emerald-500/20">Zero-API</span>
+            </button>
+          )}
+
           {/* Expand / Minimize Drawer Width Toggle on Desktop */}
           <button
             type="button"

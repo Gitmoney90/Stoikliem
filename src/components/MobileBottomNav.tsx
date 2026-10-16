@@ -18,6 +18,7 @@ import {
   TrendingUp,
   Sparkles,
   ScrollText,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -43,6 +44,7 @@ interface MobileBottomNavProps {
   isKeypadOpen: boolean;
   onToggleKeypad: () => void;
   onOpenResearch: () => void;
+  onOpenProofProver?: () => void;
   activeMainTab?: 'studio' | 'theorems' | 'submissions';
   onSelectMainTab?: (tab: 'studio' | 'theorems' | 'submissions') => void;
 }
@@ -69,6 +71,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   isKeypadOpen,
   onToggleKeypad,
   onOpenResearch,
+  onOpenProofProver,
   activeMainTab = 'studio',
   onSelectMainTab,
 }) => {
@@ -100,7 +103,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               <div className="flex items-center gap-2">
                 <Compass className="w-5 h-5" style={{ color: theme.accent }} />
                 <span className="font-semibold text-sm tracking-tight" style={{ fontFamily: '"Cinzel", serif' }}>
-                  Principia Tools & Archives
+                  Stoikliem Tools & Archives
                 </span>
               </div>
               <button
@@ -266,6 +269,28 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <span className="text-3xs text-indigo-600 dark:text-indigo-400 font-semibold">Research</span>
                 </div>
               </button>
+
+              {/* Client Zero-API Proof Prover & Verifier */}
+              {onOpenProofProver && (
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onOpenProofProver();
+                  }}
+                  className="min-h-[48px] p-3 rounded-xl border flex items-center gap-2.5 font-medium text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                  style={{
+                    backgroundColor: theme.bgCard,
+                    borderColor: theme.border,
+                    color: theme.textPrimary,
+                  }}
+                >
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-500" />
+                  <div className="flex flex-col text-left">
+                    <span className="truncate">Proof Prover</span>
+                    <span className="text-3xs text-emerald-600 dark:text-emerald-400 font-semibold">Zero-API Verifier</span>
+                  </div>
+                </button>
+              )}
 
               {/* Cartography & Grid Settings */}
               <button

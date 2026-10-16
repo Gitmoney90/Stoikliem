@@ -19,6 +19,7 @@ import {
   Download,
   ChevronDown,
   Check,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface TopNavProps {
@@ -42,6 +43,7 @@ interface TopNavProps {
   isP2PConnected: boolean;
   onOpenGraphTheory: () => void;
   onOpenResearch: () => void;
+  onOpenProofProver?: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -65,6 +67,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   isP2PConnected,
   onOpenGraphTheory,
   onOpenResearch,
+  onOpenProofProver,
 }) => {
   const { user, profile } = useAuth();
   const [isPlaneMenuOpen, setIsPlaneMenuOpen] = useState(false);
@@ -98,7 +101,7 @@ export const TopNav: React.FC<TopNavProps> = ({
             color: theme.textPrimary,
           }}
         >
-          Principia Graphica
+          Stoikliem Graphica
         </a>
       </div>
 
@@ -182,6 +185,21 @@ export const TopNav: React.FC<TopNavProps> = ({
           <Network className="w-3.5 h-3.5" />
           <span>Graph Theory</span>
         </button>
+
+        {onOpenProofProver && (
+          <button
+            onClick={onOpenProofProver}
+            title="Local Zero-API Proof Prover & Automated Theorem Verifier (Tableaux & Induction)"
+            className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1 opacity-80 hover:opacity-100"
+            style={{ color: theme.textSecondary }}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Proof Prover</span>
+            <span className="px-1 py-0.2 rounded text-3xs font-mono font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+              Zero-API
+            </span>
+          </button>
+        )}
 
         {/* P2P Room Link with Live Status */}
         <button

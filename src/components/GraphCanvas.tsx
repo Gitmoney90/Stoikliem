@@ -35,6 +35,7 @@ import {
   formatComplex,
 } from '../math/complex';
 import { CurvePreset, CLASSIC_PRESETS } from '../math/presets';
+import { RaymarchingCanvas } from './RaymarchingCanvas';
 
 interface GraphCanvasProps {
   viewport: Viewport;
@@ -51,6 +52,7 @@ interface GraphCanvasProps {
   onSelectGridMode?: (mode: GridMode) => void;
   onLoadPreset?: (preset: CurvePreset) => void;
   onOpenPresets?: () => void;
+  onPlot2DSlice?: (sliceFormula: string, manifoldName: string, sliceZ: number) => void;
 }
 
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
@@ -68,6 +70,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   onSelectGridMode,
   onLoadPreset,
   onOpenPresets,
+  onPlot2DSlice,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -75,6 +78,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   // Plane selector & Unique graphs menu state
   const [isPlaneMenuOpen, setIsPlaneMenuOpen] = useState(false);
   const [isUniqueGraphsMenuOpen, setIsUniqueGraphsMenuOpen] = useState(false);
+  const [isRaymarchSlicerOpen, setIsRaymarchSlicerOpen] = useState(false);
 
   // Interaction states
   const [isDragging, setIsDragging] = useState(false);
@@ -738,7 +742,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `principia_graph_${Date.now()}.png`;
+        a.download = `stoikliem_graph_${Date.now()}.png`;
         a.click();
         URL.revokeObjectURL(url);
         setSnapshotStatus('downloaded');
@@ -748,6 +752,17 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       // ignore
     }
   };
+
+  if (gridMode === 'raymarch_3d') {
+    return (
+      <div className="relative w-full h-full select-none overflow-hidden">
+        <RaymarchingCanvas
+          theme={theme}
+          onPlot2DSlice={onPlot2DSlice}
+        />
+      </div>
+    );
+  }
 
   return (
     <div ref={containerRef} className="relative w-full h-full select-none overflow-hidden touch-none">
@@ -800,6 +815,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                       ? 'ℂ Complex'
                       : gridMode === 'complex_vector'
                       ? '𝔉 Vector Field'
+                      : (gridMode as GridMode) === 'raymarch_3d'
+                      ? '🧊 3D Raymarch'
                       : gridMode === 'polar'
                       ? '◎ Polar'
                       : gridMode === 'trig'
@@ -899,6 +916,23 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                       </div>
                       {gridMode === 'trig' && <Check className="w-3.5 h-3.5 text-amber-400" />}
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectGridMode('raymarch_3d');
+                        setIsPlaneMenuOpen(false);
+                      }}
+                      className={`px-2 py-1.5 rounded-lg flex items-center justify-between text-left transition-colors ${
+                        (gridMode as GridMode) === 'raymarch_3d' ? 'bg-indigo-500/20 text-indigo-400 font-semibold ring-1 ring-indigo-400/30' : 'hover:bg-stone-800'
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-indigo-300">🧊 3D Manifolds & Raymarching</span>
+                        <span className="text-3xs text-stone-400">GPU raymarcher & real-time slicing</span>
+                      </div>
+                      {(gridMode as GridMode) === 'raymarch_3d' && <Check className="w-3.5 h-3.5 text-indigo-400" />}
+                    </button>
                   </div>
                 )}
               </div>
@@ -972,6 +1006,22 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 )}
               </div>
             )}
+
+            {/* GPU 3D Manifold Raymarching & Real-time Slicer Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsRaymarchSlicerOpen(!isRaymarchSlicerOpen)}
+              title="GPU-Accelerated 3D Implicit Surface Raymarching & Real-Time Slicing Dock"
+              className={`px-2 py-1 rounded-lg flex items-center gap-1 transition-all active:scale-95 font-medium ${
+                isRaymarchSlicerOpen || (gridMode as GridMode) === 'raymarch_3d'
+                  ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/40 font-semibold shadow-xs'
+                  : 'hover:text-white hover:bg-stone-800 text-stone-300'
+              }`}
+            >
+              <Compass className="w-3 h-3 text-indigo-400 shrink-0" />
+              <span className="hidden sm:inline">3D Manifold Slicer</span>
+              <span className="sm:hidden">3D Slicer</span>
+            </button>
 
             <span className="w-px h-3.5 bg-stone-700/60 mx-0.5 hidden xs:inline" />
 
@@ -1163,6 +1213,18 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
               <span className="text-emerald-400 font-semibold text-3xs">TRACE ON</span>
             </>
           )}
+        </div>
+      )}
+
+      {/* Docked / PiP 3D Manifold Raymarching Slicer when enabled in 2D Cartesian Mode */}
+      {isRaymarchSlicerOpen && (
+        <div className="absolute top-14 right-3 sm:right-6 w-[92%] sm:w-[460px] h-[360px] z-30 animate-in fade-in zoom-in-95 duration-200">
+          <RaymarchingCanvas
+            theme={theme}
+            isEmbedded={true}
+            onClose={() => setIsRaymarchSlicerOpen(false)}
+            onPlot2DSlice={onPlot2DSlice}
+          />
         </div>
       )}
     </div>

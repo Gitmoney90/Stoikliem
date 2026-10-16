@@ -1,5 +1,5 @@
 {
-  "name": "Principia Graphica — Advanced Mathematical Graphing Explorer",
+  "name": "Stoikliem Graphica — Advanced Mathematical Graphing Explorer",
   "description": "An advanced mathematical graphing explorer supporting Cartesian, parametric, polar, and implicit equation rendering with marching squares contouring, interactive sliders, calculus tools, and classic academic aesthetics.",
   "requestFramePermissions": [
     "camera"
