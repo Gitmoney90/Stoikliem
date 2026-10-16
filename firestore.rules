@@ -22,6 +22,7 @@ service cloud.firestore {
       return resource.data;
     }
 
+    // --- User Profiles ---
     function isValidUserProfile(data) {
       return data.keys().hasAll(['uid', 'username', 'displayName']) &&
         data.keys().hasOnly(['uid', 'username', 'displayName', 'bio', 'academicTitle', 'avatarUrl', 'avatarEmoji', 'createdAt', 'updatedAt']) &&
@@ -35,11 +36,9 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Anyone can read profiles to see usernames on submissions and public author cards
       allow get: if isValidId(userId);
       allow list: if isSignedIn();
 
-      // Only the authenticated user can create or modify their own profile
       allow create: if isValidId(userId) &&
         isSignedIn() &&
         userId == request.auth.uid &&
@@ -57,6 +56,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // --- Graphs ---
     function isValidGraph(data) {
       return data.keys().hasAll(['title', 'authorId', 'shareCode', 'isPublic', 'expressionsJson', 'viewportJson']) &&
         data.keys().hasOnly(['title', 'description', 'authorId', 'authorName', 'shareCode', 'isPublic', 'expressionsJson', 'viewportJson', 'gridMode', 'themeId', 'createdAt', 'updatedAt']) &&
@@ -104,9 +104,10 @@ service cloud.firestore {
         resource.data.authorId == request.auth.uid;
     }
 
+    // --- Research Posts & Vlog Publications ---
     function isValidResearchPost(data) {
       return data.keys().hasAll(['title', 'category', 'authorId', 'latexStatement', 'body', 'isPublic']) &&
-        data.keys().hasOnly(['title', 'category', 'authorId', 'authorName', 'authorTitle', 'authorAvatarEmoji', 'latexStatement', 'body', 'attachedExpressionsJson', 'tags', 'endorsementsCount', 'isPublic', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['title', 'category', 'authorId', 'authorName', 'authorTitle', 'authorAvatarEmoji', 'latexStatement', 'body', 'attachedExpressionsJson', 'mediaAttachmentsJson', 'vlogVideoUrl', 'vlogStepsJson', 'tags', 'endorsementsCount', 'commentsCount', 'isPublic', 'createdAt', 'updatedAt']) &&
         data.title is string && data.title.size() > 0 && data.title.size() <= 150 &&
         data.category is string && data.category.size() <= 30 &&
         data.authorId is string && data.authorId == request.auth.uid &&
@@ -114,10 +115,14 @@ service cloud.firestore {
         (!('authorTitle' in data) || (data.authorTitle is string && data.authorTitle.size() <= 100)) &&
         (!('authorAvatarEmoji' in data) || (data.authorAvatarEmoji is string && data.authorAvatarEmoji.size() <= 10)) &&
         data.latexStatement is string && data.latexStatement.size() <= 2000 &&
-        data.body is string && data.body.size() <= 5000 &&
+        data.body is string && data.body.size() <= 10000 &&
         (!('attachedExpressionsJson' in data) || (data.attachedExpressionsJson is string && data.attachedExpressionsJson.size() <= 25000)) &&
+        (!('mediaAttachmentsJson' in data) || (data.mediaAttachmentsJson is string && data.mediaAttachmentsJson.size() <= 65000)) &&
+        (!('vlogVideoUrl' in data) || (data.vlogVideoUrl is string && data.vlogVideoUrl.size() <= 500)) &&
+        (!('vlogStepsJson' in data) || (data.vlogStepsJson is string && data.vlogStepsJson.size() <= 25000)) &&
         (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
         (!('endorsementsCount' in data) || (data.endorsementsCount is number && data.endorsementsCount >= 0)) &&
+        (!('commentsCount' in data) || (data.commentsCount is number && data.commentsCount >= 0)) &&
         data.isPublic is bool;
     }
 
@@ -147,17 +152,128 @@ service cloud.firestore {
            incoming().authorId == resource.data.authorId &&
            incoming().createdAt == resource.data.createdAt &&
            incoming().updatedAt == request.time &&
-           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'authorName', 'authorTitle', 'authorAvatarEmoji', 'latexStatement', 'body', 'attachedExpressionsJson', 'tags', 'isPublic', 'endorsementsCount', 'updatedAt'])) ||
+           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'authorName', 'authorTitle', 'authorAvatarEmoji', 'latexStatement', 'body', 'attachedExpressionsJson', 'mediaAttachmentsJson', 'vlogVideoUrl', 'vlogStepsJson', 'tags', 'isPublic', 'endorsementsCount', 'commentsCount', 'updatedAt'])) ||
           (incoming().diff(existing()).affectedKeys().hasOnly(['endorsementsCount', 'updatedAt']) &&
            incoming().endorsementsCount is number &&
+           incoming().updatedAt == request.time) ||
+          (incoming().diff(existing()).affectedKeys().hasOnly(['commentsCount', 'updatedAt']) &&
+           incoming().commentsCount is number &&
            incoming().updatedAt == request.time)
         );
 
       allow delete: if isValidId(postId) &&
         isSignedIn() &&
         resource.data.authorId == request.auth.uid;
+
+      // --- Comments on Research Posts ---
+      function isValidComment(data) {
+        return data.keys().hasAll(['postId', 'authorId', 'authorName', 'content']) &&
+          data.keys().hasOnly(['postId', 'authorId', 'authorName', 'authorTitle', 'authorAvatarEmoji', 'content', 'createdAt', 'updatedAt']) &&
+          data.postId is string && data.postId == postId &&
+          data.authorId is string && data.authorId == request.auth.uid &&
+          data.authorName is string && data.authorName.size() <= 100 &&
+          (!('authorTitle' in data) || (data.authorTitle is string && data.authorTitle.size() <= 100)) &&
+          (!('authorAvatarEmoji' in data) || (data.authorAvatarEmoji is string && data.authorAvatarEmoji.size() <= 10)) &&
+          data.content is string && data.content.size() > 0 && data.content.size() <= 2000;
+      }
+
+      match /comments/{commentId} {
+        allow get: if isValidId(commentId);
+        allow list: if true;
+        allow create: if isValidId(commentId) &&
+          isSignedIn() &&
+          isValidComment(incoming()) &&
+          incoming().authorId == request.auth.uid &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time;
+        allow update: if isValidId(commentId) &&
+          isSignedIn() &&
+          resource.data.authorId == request.auth.uid &&
+          isValidComment(incoming()) &&
+          incoming().authorId == request.auth.uid &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt']);
+        allow delete: if isValidId(commentId) &&
+          isSignedIn() &&
+          resource.data.authorId == request.auth.uid;
+      }
     }
 
+    // --- Friendships ---
+    function isValidFriendship(data) {
+      return data.keys().hasAll(['user1Id', 'user2Id', 'status', 'initiatedBy']) &&
+        data.keys().hasOnly(['user1Id', 'user2Id', 'user1Name', 'user2Name', 'user1Avatar', 'user2Avatar', 'status', 'initiatedBy', 'createdAt', 'updatedAt']) &&
+        data.user1Id is string && data.user1Id.size() <= 128 &&
+        data.user2Id is string && data.user2Id.size() <= 128 &&
+        data.status is string && (data.status == 'pending' || data.status == 'accepted' || data.status == 'declined') &&
+        data.initiatedBy is string && data.initiatedBy == request.auth.uid &&
+        (!('user1Name' in data) || (data.user1Name is string && data.user1Name.size() <= 100)) &&
+        (!('user2Name' in data) || (data.user2Name is string && data.user2Name.size() <= 100)) &&
+        (!('user1Avatar' in data) || (data.user1Avatar is string && data.user1Avatar.size() <= 10)) &&
+        (!('user2Avatar' in data) || (data.user2Avatar is string && data.user2Avatar.size() <= 10));
+    }
+
+    match /friendships/{friendshipId} {
+      allow get: if isValidId(friendshipId) && isSignedIn() && (
+        resource.data.user1Id == request.auth.uid ||
+        resource.data.user2Id == request.auth.uid
+      );
+      allow list: if isSignedIn();
+      allow create: if isValidId(friendshipId) &&
+        isSignedIn() &&
+        isValidFriendship(incoming()) &&
+        (incoming().user1Id == request.auth.uid || incoming().user2Id == request.auth.uid) &&
+        incoming().initiatedBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(friendshipId) &&
+        isSignedIn() &&
+        (resource.data.user1Id == request.auth.uid || resource.data.user2Id == request.auth.uid) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+        incoming().updatedAt == request.time &&
+        (incoming().status == 'accepted' || incoming().status == 'declined');
+      allow delete: if isValidId(friendshipId) &&
+        isSignedIn() &&
+        (resource.data.user1Id == request.auth.uid || resource.data.user2Id == request.auth.uid);
+    }
+
+    // --- Direct Peer-to-Peer Sessions (between Friends) ---
+    function isValidDirectP2PSession(data) {
+      return data.keys().hasAll(['sessionId', 'status']) &&
+        data.keys().hasOnly(['sessionId', 'participants', 'activeHost', 'hostOffer', 'guestAnswer', 'graphSyncJson', 'chatMessagesJson', 'status', 'createdAt', 'updatedAt']) &&
+        data.sessionId is string && data.sessionId.size() <= 128 &&
+        data.status is string && data.status.size() <= 20 &&
+        (!('participants' in data) || (data.participants is list && data.participants.size() <= 4)) &&
+        (!('activeHost' in data) || (data.activeHost is string && data.activeHost.size() <= 128)) &&
+        (!('hostOffer' in data) || (data.hostOffer is string && data.hostOffer.size() <= 65000)) &&
+        (!('guestAnswer' in data) || (data.guestAnswer is string && data.guestAnswer.size() <= 65000)) &&
+        (!('graphSyncJson' in data) || (data.graphSyncJson is string && data.graphSyncJson.size() <= 100000)) &&
+        (!('chatMessagesJson' in data) || (data.chatMessagesJson is string && data.chatMessagesJson.size() <= 100000));
+    }
+
+    match /direct_p2p/{sessionId} {
+      allow get: if isValidId(sessionId) && isSignedIn() && (
+        !('participants' in resource.data) ||
+        request.auth.uid in resource.data.participants
+      );
+      allow list: if isSignedIn();
+      allow create: if isValidId(sessionId) &&
+        isSignedIn() &&
+        isValidDirectP2PSession(incoming()) &&
+        request.auth.uid in incoming().participants;
+      allow update: if isValidId(sessionId) &&
+        isSignedIn() &&
+        isValidDirectP2PSession(incoming()) &&
+        (
+          !('participants' in resource.data) ||
+          request.auth.uid in resource.data.participants
+        );
+      allow delete: if isValidId(sessionId) &&
+        isSignedIn() &&
+        request.auth.uid in resource.data.participants;
+    }
+
+    // --- Legacy P2P Rooms ---
     function isValidP2PRoom(data) {
       return data.keys().hasAll(['roomCode', 'status']) &&
         data.keys().hasOnly(['roomCode', 'status', 'hostOffer', 'guestAnswer', 'graphSyncJson', 'chatMessagesJson', 'createdAt', 'updatedAt']) &&

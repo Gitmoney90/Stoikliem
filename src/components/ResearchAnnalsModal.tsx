@@ -192,6 +192,7 @@ export const ResearchAnnalsModal: React.FC<ResearchAnnalsModalProps> = ({
   if (!isOpen) return null;
 
   const categoryStyles: Record<TheoremCategory, { label: string; badgeBg: string; textCol: string }> = {
+    vlog_discovery: { label: '🎬 Vlog Discovery', badgeBg: 'bg-indigo-500/15 border-indigo-500/30', textCol: 'text-indigo-700 dark:text-indigo-400' },
     theorem: { label: 'Theorem', badgeBg: 'bg-amber-500/15 border-amber-500/30', textCol: 'text-amber-700 dark:text-amber-400' },
     conjecture: { label: 'Conjecture', badgeBg: 'bg-cyan-500/15 border-cyan-500/30', textCol: 'text-cyan-700 dark:text-cyan-400' },
     lemma: { label: 'Lemma', badgeBg: 'bg-emerald-500/15 border-emerald-500/30', textCol: 'text-emerald-700 dark:text-emerald-400' },

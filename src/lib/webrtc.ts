@@ -13,6 +13,7 @@ export interface ChatMessage {
   senderId?: string;
   sender: 'self' | 'peer';
   senderName: string;
+  senderEmoji?: string;
   text: string;
   timestamp: number;
 }

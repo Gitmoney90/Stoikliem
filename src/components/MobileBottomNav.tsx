@@ -43,6 +43,8 @@ interface MobileBottomNavProps {
   isKeypadOpen: boolean;
   onToggleKeypad: () => void;
   onOpenResearch: () => void;
+  activeMainTab?: 'studio' | 'theorems' | 'submissions';
+  onSelectMainTab?: (tab: 'studio' | 'theorems' | 'submissions') => void;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
@@ -67,6 +69,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   isKeypadOpen,
   onToggleKeypad,
   onOpenResearch,
+  activeMainTab = 'studio',
+  onSelectMainTab,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, profile } = useAuth();
@@ -222,7 +226,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               <button
                 onClick={() => {
                   setIsMenuOpen(false);
-                  onOpenGallery();
+                  if (onSelectMainTab) {
+                    onSelectMainTab('submissions');
+                  } else {
+                    onOpenGallery();
+                  }
                 }}
                 className="min-h-[48px] p-3 rounded-xl border flex items-center gap-2.5 font-medium text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                 style={{
@@ -239,7 +247,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               <button
                 onClick={() => {
                   setIsMenuOpen(false);
-                  onOpenResearch();
+                  if (onSelectMainTab) {
+                    onSelectMainTab('theorems');
+                  } else {
+                    onOpenResearch();
+                  }
                 }}
                 className="min-h-[48px] p-3 rounded-xl border flex items-center gap-2.5 font-medium text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                 style={{
@@ -363,14 +375,22 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         }}
         aria-label="Mobile Bottom Navigation"
       >
-        {/* Tab 1: Equations / Curves Drawer Toggle */}
+        {/* Tab 1: Studio Canvas / Equations */}
         <button
-          onClick={onToggleSidebar}
-          className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95"
-          style={{
-            color: isSidebarOpen ? theme.accent : theme.textSecondary,
+          onClick={() => {
+            if (activeMainTab !== 'studio' && onSelectMainTab) {
+              onSelectMainTab('studio');
+            } else {
+              onToggleSidebar();
+            }
           }}
-          aria-label="Equations List"
+          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95 ${
+            activeMainTab === 'studio' ? 'font-bold' : ''
+          }`}
+          style={{
+            color: activeMainTab === 'studio' ? theme.accent : theme.textSecondary,
+          }}
+          aria-label="Studio Canvas"
         >
           <div className="relative flex items-center justify-center">
             <span className="font-serif italic font-bold text-sm">f(x)</span>
@@ -383,21 +403,40 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               </span>
             )}
           </div>
-          <span className="text-3xs font-medium tracking-tight">Curves</span>
+          <span className="text-3xs tracking-tight">Studio</span>
         </button>
 
-        {/* Tab 2: Classical Presets */}
+        {/* Tab 2: Theorems & Vlog Annals Tab */}
         <button
-          onClick={onOpenPresets}
-          className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95"
-          style={{ color: theme.textSecondary }}
-          aria-label="Classical Curves Presets"
+          onClick={() => (onSelectMainTab ? onSelectMainTab('theorems') : onOpenResearch())}
+          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95 ${
+            activeMainTab === 'theorems' ? 'font-bold' : ''
+          }`}
+          style={{
+            color: activeMainTab === 'theorems' ? '#6366F1' : theme.textSecondary,
+          }}
+          aria-label="Theorems & Vlog Publications"
         >
-          <BookOpen className="w-4 h-4" />
-          <span className="text-3xs font-medium tracking-tight">Presets</span>
+          <ScrollText className="w-4 h-4 text-indigo-500" />
+          <span className="text-3xs tracking-tight">Theorems</span>
         </button>
 
-        {/* Tab 3: Symbolic CAS & Calculus Studio Drawer */}
+        {/* Tab 3: Community Submissions Tab */}
+        <button
+          onClick={() => (onSelectMainTab ? onSelectMainTab('submissions') : onOpenGallery())}
+          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95 ${
+            activeMainTab === 'submissions' ? 'font-bold' : ''
+          }`}
+          style={{
+            color: activeMainTab === 'submissions' ? '#F59E0B' : theme.textSecondary,
+          }}
+          aria-label="Submissions Archive"
+        >
+          <Globe className="w-4 h-4 text-amber-500" />
+          <span className="text-3xs tracking-tight">Submissions</span>
+        </button>
+
+        {/* Tab 4: Symbolic CAS & Calculus Studio Drawer */}
         <button
           onClick={onToggleAnalysis}
           className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95"
@@ -407,21 +446,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           aria-label="Symbolic CAS & Calculus Studio"
         >
           <Sparkles className="w-4 h-4" />
-          <span className="text-3xs font-medium tracking-tight">CAS/Calc</span>
+          <span className="text-3xs tracking-tight">CAS/Calc</span>
         </button>
 
-        {/* Tab 4: Graph Theory Explorer */}
-        <button
-          onClick={onOpenGraphTheory}
-          className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95"
-          style={{ color: theme.textSecondary }}
-          aria-label="Graph Theory"
-        >
-          <Network className="w-4 h-4" />
-          <span className="text-3xs font-medium tracking-tight">Theory</span>
-        </button>
-
-        {/* Tab 5: Mobile Actions Menu */}
+        {/* Tab 5: Mobile Actions Menu (Presets, Theory, Cartography, P2P) */}
         <button
           onClick={() => setIsMenuOpen(true)}
           className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95"
@@ -429,7 +457,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           aria-label="More Features"
         >
           <Menu className="w-4 h-4" />
-          <span className="text-3xs font-medium tracking-tight">More</span>
+          <span className="text-3xs tracking-tight">More</span>
         </button>
       </nav>
     </>

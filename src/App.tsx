@@ -24,6 +24,8 @@ import { P2PRoomModal } from './components/P2PRoomModal';
 import { GraphTheoryModal } from './components/GraphTheoryModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { ResearchAnnalsModal } from './components/ResearchAnnalsModal';
+import { TheoryPublicationTab } from './components/TheoryPublicationTab';
+import { SubmissionArchiveTab } from './components/SubmissionArchiveTab';
 import { P2PEngine, P2PConnectionState } from './lib/webrtc';
 import { ChevronLeft, ChevronRight, CheckCircle2, Sparkles } from 'lucide-react';
 
@@ -71,13 +73,41 @@ export default function App() {
     p2pEngine.onStateChange = (st) => setP2PConnectionState(st);
   }, [p2pEngine]);
 
-  // Check URL parameters for direct P2P Room invite link
+  // Main Tab State: 'studio' | 'theorems' | 'submissions'
+  const [activeMainTab, setActiveMainTab] = useState<'studio' | 'theorems' | 'submissions'>('studio');
+  const [initialPostId, setInitialPostId] = useState<string | null>(null);
+
+  const handleSelectMainTab = (tab: 'studio' | 'theorems' | 'submissions') => {
+    setActiveMainTab(tab);
+    try {
+      const url = new URL(window.location.href);
+      if (tab === 'studio') {
+        url.searchParams.delete('tab');
+        url.searchParams.delete('post');
+      } else {
+        url.searchParams.set('tab', tab);
+      }
+      window.history.replaceState({}, '', url.toString());
+    } catch {}
+  };
+
+  // Check URL parameters for direct tab / theorem dispatch / p2p room
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const roomParam = params.get('p2p_room');
       if (roomParam) {
         setIsP2PRoomOpen(true);
+      }
+      const tabParam = params.get('tab');
+      const postParam = params.get('post');
+      if (postParam) {
+        setInitialPostId(postParam);
+        setActiveMainTab('theorems');
+      } else if (tabParam === 'theorems' || tabParam === 'annals' || tabParam === 'vlog') {
+        setActiveMainTab('theorems');
+      } else if (tabParam === 'submissions' || tabParam === 'gallery') {
+        setActiveMainTab('submissions');
       }
     } catch {}
   }, []);
@@ -622,6 +652,8 @@ export default function App() {
         themeId={themeId}
         gridMode={gridMode}
         onSelectGridMode={setGridMode}
+        activeMainTab={activeMainTab}
+        onSelectMainTab={handleSelectMainTab}
         onToggleTheme={() => setThemeId(themeId === 'slate' || themeId === 'engraving' ? 'parchment' : 'slate')}
         onOpenPresets={() => setIsPresetsOpen(true)}
         onToggleAnalysis={() => setIsAnalysisOpen(!isAnalysisOpen)}
@@ -630,12 +662,12 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenShareSubmission={() => setIsShareSubmissionOpen(true)}
         onOpenExport={() => setIsExportOpen(true)}
-        onOpenGallery={() => setIsGalleryOpen(true)}
+        onOpenGallery={() => handleSelectMainTab('submissions')}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenP2PRoom={() => setIsP2PRoomOpen(true)}
         isP2PConnected={p2pConnectionState === 'connected'}
         onOpenGraphTheory={() => setIsGraphTheoryOpen(true)}
-        onOpenResearch={() => setIsResearchOpen(true)}
+        onOpenResearch={() => handleSelectMainTab('theorems')}
       />
 
       {/* Floating Smooth Toast Feedback Banner */}
@@ -668,88 +700,118 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Workspace Frame */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Responsive Collapsible Sidebar */}
-        <Sidebar
-          expressions={expressions}
-          parsedEquations={parsedEquations}
-          activeExpressionId={activeExpressionId}
+      {/* Full-Tab Multi-Workspace Views */}
+      {activeMainTab === 'theorems' ? (
+        <TheoryPublicationTab
           theme={theme}
-          isOpen={isSidebarOpen}
-          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-          onSelectExpression={(id) => setActiveExpressionId(id)}
-          onAddExpression={handleAddExpression}
-          onAddExpressionWithText={handleAddExpressionWithText}
-          onUpdateText={handleUpdateText}
-          onToggleVisible={handleToggleVisible}
-          onChangeColor={handleChangeColor}
-          onDeleteExpression={handleDeleteExpression}
-          onDuplicateExpression={handleDuplicateExpression}
-          onUpdateExpressionData={handleUpdateExpressionData}
-          isKeypadOpen={isKeypadOpen}
-          onToggleKeypad={() => setIsKeypadOpen(!isKeypadOpen)}
-          onInsertKeypadText={handleInsertKeypadText}
-          onKeypadBackspace={handleKeypadBackspace}
-          onKeypadClear={handleKeypadClear}
-          onOpenCAS={(id) => {
-            setActiveExpressionId(id);
-            setIsAnalysisOpen(true);
+          currentExpressions={expressions}
+          viewport={viewport}
+          gridMode={gridMode}
+          themeId={themeId}
+          onBackToStudio={() => handleSelectMainTab('studio')}
+          onPlotAttachedExpressions={(exprs, title) => {
+            handlePlotAttachedExpressions(exprs, title);
+            handleSelectMainTab('studio');
           }}
+          onShowToast={showToast}
+          initialPostId={initialPostId}
         />
-
-        {/* Sidebar Collapse Toggle Button (Desktop only; on mobile controlled via bottom nav) */}
-        <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          title={isSidebarOpen ? 'Hide Expressions Panel' : 'Show Expressions Panel'}
-          className="hidden md:flex absolute left-0 top-3 z-20 p-2 rounded-r-lg border-y border-r shadow-md transition-transform hover:opacity-90 items-center justify-center min-h-[38px] active:scale-95"
-          style={{
-            transform: isSidebarOpen ? 'translateX(320px)' : 'translateX(0)',
-            backgroundColor: theme.bgSidebar,
-            borderColor: theme.border,
-            color: theme.textSecondary,
+      ) : activeMainTab === 'submissions' ? (
+        <SubmissionArchiveTab
+          theme={theme}
+          optimisticSubmissions={optimisticSubmissions}
+          onBackToStudio={() => handleSelectMainTab('studio')}
+          onOpenShareSubmission={() => setIsShareSubmissionOpen(true)}
+          onLoadGraphSubmission={(data) => {
+            handleLoadGraphSubmission(data);
+            handleSelectMainTab('studio');
           }}
-          aria-label={isSidebarOpen ? 'Hide Sidebar' : 'Show Sidebar'}
-        >
-          {isSidebarOpen ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-        </button>
-
-        {/* Graphing Engine Canvas Area */}
-        <main className="flex-1 h-full relative overflow-hidden">
-          <GraphCanvas
-            viewport={viewport}
-            onViewportChange={setViewport}
-            expressions={expressions}
-            parsedEquations={parsedEquations}
-            scope={scope}
-            theme={theme}
-            gridMode={gridMode}
-            showMinorGrid={showMinorGrid}
-            angleUnit={angleUnit}
-            activeExpressionId={activeExpressionId}
-            onSelectExpression={(id) => setActiveExpressionId(id)}
-            onSelectGridMode={setGridMode}
-            onLoadPreset={handleLoadPreset}
-            onOpenPresets={() => setIsPresetsOpen(true)}
-          />
-
-          {/* Calculus Studio Drawer */}
-          <AnalysisPanel
-            isOpen={isAnalysisOpen}
-            onClose={() => setIsAnalysisOpen(false)}
-            theme={theme}
+          onShowToast={showToast}
+        />
+      ) : (
+        /* Main Workspace Frame (Graph Canvas + Sidebar) */
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Responsive Collapsible Sidebar */}
+          <Sidebar
             expressions={expressions}
             parsedEquations={parsedEquations}
             activeExpressionId={activeExpressionId}
+            theme={theme}
+            isOpen={isSidebarOpen}
+            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
             onSelectExpression={(id) => setActiveExpressionId(id)}
-            viewport={viewport}
-            scope={scope}
+            onAddExpression={handleAddExpression}
+            onAddExpressionWithText={handleAddExpressionWithText}
+            onUpdateText={handleUpdateText}
+            onToggleVisible={handleToggleVisible}
+            onChangeColor={handleChangeColor}
+            onDeleteExpression={handleDeleteExpression}
+            onDuplicateExpression={handleDuplicateExpression}
             onUpdateExpressionData={handleUpdateExpressionData}
-            onPlotExpression={handlePlotCASExpression}
-            onPlotPoint={handlePlotCASPoint}
+            isKeypadOpen={isKeypadOpen}
+            onToggleKeypad={() => setIsKeypadOpen(!isKeypadOpen)}
+            onInsertKeypadText={handleInsertKeypadText}
+            onKeypadBackspace={handleKeypadBackspace}
+            onKeypadClear={handleKeypadClear}
+            onOpenCAS={(id) => {
+              setActiveExpressionId(id);
+              setIsAnalysisOpen(true);
+            }}
           />
-        </main>
-      </div>
+
+          {/* Sidebar Collapse Toggle Button (Desktop only; on mobile controlled via bottom nav) */}
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            title={isSidebarOpen ? 'Hide Expressions Panel' : 'Show Expressions Panel'}
+            className="hidden md:flex absolute left-0 top-3 z-20 p-2 rounded-r-lg border-y border-r shadow-md transition-transform hover:opacity-90 items-center justify-center min-h-[38px] active:scale-95"
+            style={{
+              transform: isSidebarOpen ? 'translateX(320px)' : 'translateX(0)',
+              backgroundColor: theme.bgSidebar,
+              borderColor: theme.border,
+              color: theme.textSecondary,
+            }}
+            aria-label={isSidebarOpen ? 'Hide Sidebar' : 'Show Sidebar'}
+          >
+            {isSidebarOpen ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          </button>
+
+          {/* Graphing Engine Canvas Area */}
+          <main className="flex-1 h-full relative overflow-hidden">
+            <GraphCanvas
+              viewport={viewport}
+              onViewportChange={setViewport}
+              expressions={expressions}
+              parsedEquations={parsedEquations}
+              scope={scope}
+              theme={theme}
+              gridMode={gridMode}
+              showMinorGrid={showMinorGrid}
+              angleUnit={angleUnit}
+              activeExpressionId={activeExpressionId}
+              onSelectExpression={(id) => setActiveExpressionId(id)}
+              onSelectGridMode={setGridMode}
+              onLoadPreset={handleLoadPreset}
+              onOpenPresets={() => setIsPresetsOpen(true)}
+            />
+
+            {/* Calculus Studio Drawer */}
+            <AnalysisPanel
+              isOpen={isAnalysisOpen}
+              onClose={() => setIsAnalysisOpen(false)}
+              theme={theme}
+              expressions={expressions}
+              parsedEquations={parsedEquations}
+              activeExpressionId={activeExpressionId}
+              onSelectExpression={(id) => setActiveExpressionId(id)}
+              viewport={viewport}
+              scope={scope}
+              onUpdateExpressionData={handleUpdateExpressionData}
+              onPlotExpression={handlePlotCASExpression}
+              onPlotPoint={handlePlotCASPoint}
+            />
+          </main>
+        </div>
+      )}
 
       {/* Dedicated Android Mobile Bottom Navigation Bar */}
       <MobileBottomNav
@@ -764,16 +826,18 @@ export default function App() {
         onOpenTable={() => setIsTableOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenShareSubmission={() => setIsShareSubmissionOpen(true)}
-        onOpenGallery={() => setIsGalleryOpen(true)}
+        onOpenGallery={() => handleSelectMainTab('submissions')}
         onOpenP2PRoom={() => setIsP2PRoomOpen(true)}
         isP2PConnected={p2pConnectionState === 'connected'}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenExport={() => setIsExportOpen(true)}
         isKeypadOpen={isKeypadOpen}
         onToggleKeypad={() => setIsKeypadOpen(!isKeypadOpen)}
-        onOpenResearch={() => setIsResearchOpen(true)}
+        onOpenResearch={() => handleSelectMainTab('theorems')}
         gridMode={gridMode}
         onSelectGridMode={setGridMode}
+        activeMainTab={activeMainTab}
+        onSelectMainTab={handleSelectMainTab}
       />
 
       {/* Classical Curve Presets Gallery Modal */}

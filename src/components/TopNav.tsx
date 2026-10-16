@@ -26,6 +26,8 @@ interface TopNavProps {
   themeId?: ThemeId;
   gridMode?: GridMode;
   onSelectGridMode?: (mode: GridMode) => void;
+  activeMainTab?: 'studio' | 'theorems' | 'submissions';
+  onSelectMainTab?: (tab: 'studio' | 'theorems' | 'submissions') => void;
   onToggleTheme?: () => void;
   onOpenPresets: () => void;
   onToggleAnalysis: () => void;
@@ -47,6 +49,8 @@ export const TopNav: React.FC<TopNavProps> = ({
   themeId,
   gridMode = 'cartesian',
   onSelectGridMode,
+  activeMainTab = 'studio',
+  onSelectMainTab,
   onToggleTheme,
   onOpenPresets,
   onToggleAnalysis,
@@ -98,58 +102,91 @@ export const TopNav: React.FC<TopNavProps> = ({
         </a>
       </div>
 
-      {/* Zone 2: Desktop 4-5 Concise Single-Line Navigation Links */}
-      <nav className="hidden md:flex items-center gap-5 lg:gap-6 text-xs font-medium">
+      {/* Zone 2: Desktop Workspace Tabs and Auxiliary Tools */}
+      <nav className="hidden md:flex items-center gap-2 lg:gap-3 text-xs font-medium">
+        {/* Workspace Tab 1: Graph Studio */}
+        <button
+          onClick={() => onSelectMainTab?.('studio')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
+            activeMainTab === 'studio'
+              ? 'font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40 shadow-2xs'
+              : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
+          }`}
+          style={{ color: activeMainTab === 'studio' ? undefined : theme.textPrimary }}
+        >
+          <span className="font-serif italic font-bold">f(x)</span>
+          <span>Studio Canvas</span>
+        </button>
+
+        {/* Workspace Tab 2: Theorems & Vlog Publications */}
+        <button
+          onClick={() => (onSelectMainTab ? onSelectMainTab('theorems') : onOpenResearch())}
+          title="Full Vlog Theorem Publications, Comments, Likes & Direct Peer P2P"
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
+            activeMainTab === 'theorems'
+              ? 'font-bold bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-500/40 shadow-2xs'
+              : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
+          }`}
+          style={{ color: activeMainTab === 'theorems' ? undefined : theme.textPrimary }}
+        >
+          <ScrollText className="w-3.5 h-3.5 text-indigo-500" />
+          <span>Theorems & Vlogs</span>
+          <span className="px-1.5 py-0.2 rounded text-3xs font-mono font-bold bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
+            Annals
+          </span>
+        </button>
+
+        {/* Workspace Tab 3: Submissions Archive */}
+        <button
+          onClick={() => (onSelectMainTab ? onSelectMainTab('submissions') : onOpenGallery())}
+          title="Community Graph Submissions & Personal Locus Archive"
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
+            activeMainTab === 'submissions'
+              ? 'font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40 shadow-2xs'
+              : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
+          }`}
+          style={{ color: activeMainTab === 'submissions' ? undefined : theme.textPrimary }}
+        >
+          <Globe className="w-3.5 h-3.5 text-amber-500" />
+          <span>Submissions Archive</span>
+        </button>
+
+        <span className="w-px h-4 bg-stone-300 dark:bg-stone-700 mx-1" />
+
         <button
           onClick={onOpenPresets}
-          className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1"
+          className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1 opacity-75 hover:opacity-100"
           style={{ color: theme.textSecondary }}
         >
           <BookOpen className="w-3.5 h-3.5" />
-          <span>Classic Presets</span>
+          <span>Presets</span>
         </button>
 
         <button
           onClick={onToggleAnalysis}
           title="Symbolic Computer Algebra System (CAS), Exact Derivatives, Integrals & Algebraic Solver"
           className={`flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 hover:underline py-1 ${
-            isAnalysisOpen ? 'font-bold' : ''
+            isAnalysisOpen ? 'font-bold' : 'opacity-75 hover:opacity-100'
           }`}
           style={{ color: isAnalysisOpen ? theme.accent : theme.textSecondary }}
         >
           <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
           <span>CAS & Calculus</span>
-          <span className="px-1.5 py-0.2 rounded text-3xs font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400">
-            Symbolic
-          </span>
         </button>
 
         <button
           onClick={onOpenGraphTheory}
-          className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1"
+          className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1 opacity-75 hover:opacity-100"
           style={{ color: theme.textSecondary }}
         >
           <Network className="w-3.5 h-3.5" />
           <span>Graph Theory</span>
         </button>
 
-        <button
-          onClick={onOpenResearch}
-          title="Peer Research Dispatches, Theorems, Conjectures & Verified Loci"
-          className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1"
-          style={{ color: theme.textSecondary }}
-        >
-          <ScrollText className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Theorems & Research</span>
-          <span className="px-1.5 py-0.2 rounded text-3xs font-mono font-bold bg-indigo-500/15 text-indigo-700 dark:text-indigo-400">
-            Annals
-          </span>
-        </button>
-
         {/* P2P Room Link with Live Status */}
         <button
           onClick={onOpenP2PRoom}
-          className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1"
+          className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1 opacity-75 hover:opacity-100"
           style={{ color: isP2PConnected ? '#16A34A' : theme.textSecondary }}
         >
           <Radio className={`w-3.5 h-3.5 ${isP2PConnected ? 'animate-pulse text-emerald-600' : ''}`} />
@@ -157,15 +194,6 @@ export const TopNav: React.FC<TopNavProps> = ({
           {isP2PConnected && (
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block ml-0.5" />
           )}
-        </button>
-
-        <button
-          onClick={onOpenGallery}
-          className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1"
-          style={{ color: theme.textSecondary }}
-        >
-          <Globe className="w-3.5 h-3.5" />
-          <span>Submissions Archive</span>
         </button>
 
         {/* Plane Type & Cartography Dropdown */}

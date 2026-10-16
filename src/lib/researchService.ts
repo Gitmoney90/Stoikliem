@@ -17,7 +17,36 @@ import {
 import { db, handleFirestoreError, OperationType } from './firebase';
 import { GraphExpression, Viewport, GridMode, ThemeId } from '../types/graph';
 
-export type TheoremCategory = 'theorem' | 'conjecture' | 'lemma' | 'proof' | 'note';
+export type TheoremCategory = 'theorem' | 'conjecture' | 'lemma' | 'proof' | 'vlog_discovery' | 'note';
+
+export interface MediaAttachment {
+  id: string;
+  name: string;
+  type: 'image' | 'file';
+  dataUrl: string; // base64 or URL
+  sizeKb?: number;
+}
+
+export interface VlogStep {
+  id: string;
+  stepNumber: number;
+  title: string;
+  description: string;
+  formula?: string;
+  mediaUrl?: string;
+}
+
+export interface ResearchComment {
+  id: string;
+  postId: string;
+  authorId: string;
+  authorName: string;
+  authorTitle?: string;
+  authorAvatarEmoji?: string;
+  content: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
 
 export interface ResearchPost {
   id: string;
@@ -31,8 +60,14 @@ export interface ResearchPost {
   body: string;
   attachedExpressionsJson?: string;
   attachedExpressions?: GraphExpression[];
+  mediaAttachments?: MediaAttachment[];
+  mediaAttachmentsJson?: string;
+  vlogVideoUrl?: string;
+  vlogSteps?: VlogStep[];
+  vlogStepsJson?: string;
   tags: string[];
   endorsementsCount: number;
+  commentsCount?: number;
   isPublic: boolean;
   createdAt?: any;
   updatedAt?: any;
@@ -54,14 +89,20 @@ export const INITIAL_RESEARCH_DISPATCHES: ResearchPost[] = [
       { id: 'th1_1', rawText: 'y = sin(x) + (1/3)*sin(3*x) + (1/5)*sin(5*x) + (1/7)*sin(7*x) + (1/9)*sin(9*x)', color: '#4F46E5', visible: true, type: 'explicit' },
       { id: 'th1_2', rawText: 'y = (pi/4)*sign(sin(x))', color: '#E11D48', visible: true, type: 'explicit' },
     ]),
+    vlogStepsJson: JSON.stringify([
+      { id: 'vs1', stepNumber: 1, title: 'Harmonic Decomposition', description: 'Deconstruct odd harmonic sinusoidal modes up to n=9.', formula: 'S_N(x) = \\frac{4}{\\pi} \\sum_{k=1}^N \\frac{\\sin((2k-1)x)}{2k-1}' },
+      { id: 'vs2', stepNumber: 2, title: 'Discontinuity Point Boundary', description: 'Evaluate partial sums as x approaches 0 from the positive half.', formula: 'x_N = \\frac{\\pi}{2N}' },
+      { id: 'vs3', stepNumber: 3, title: 'Wilbraham-Gibbs Constant Q.E.D.', description: 'The overshoot integral converges to approx 1.17898 * (pi/2) as N -> infty.', formula: 'G = \\frac{2}{\\pi}\\int_0^\\pi \\frac{\\sin(t)}{t}\\,dt' },
+    ]),
     tags: ['calculus', 'fourier', 'harmonic-analysis', 'series'],
     endorsementsCount: 42,
+    commentsCount: 3,
     isPublic: true,
   },
   {
     id: 'seed_poincare_bendixson',
     title: 'Limit Cycles & Invariant Tori in Nonlinear Damped Oscillators',
-    category: 'conjecture',
+    category: 'vlog_discovery',
     authorId: 'system_annals',
     authorName: 'Henri Poincaré',
     authorTitle: 'Academician of Topology & Dynamical Systems',
@@ -72,8 +113,13 @@ export const INITIAL_RESEARCH_DISPATCHES: ResearchPost[] = [
       { id: 'th2_1', rawText: 'y = x^3 - 3*x', color: '#0D9488', visible: true, type: 'explicit' },
       { id: 'th2_2', rawText: 'y = -x + 2*sin(x)', color: '#D97706', visible: true, type: 'explicit' },
     ]),
+    vlogStepsJson: JSON.stringify([
+      { id: 'vs2_1', stepNumber: 1, title: 'Phase Vector Mapping', description: 'Convert second order ODE to first order system in (x, y).' },
+      { id: 'vs2_2', stepNumber: 2, title: 'Liénard Transformation', description: 'Plot non-linear cubic locus y = x^3/3 - x to pinpoint relaxation oscillation.' },
+    ]),
     tags: ['differential-equations', 'dynamics', 'topology', 'limit-cycles'],
     endorsementsCount: 38,
+    commentsCount: 2,
     isPublic: true,
   },
   {
@@ -92,6 +138,7 @@ export const INITIAL_RESEARCH_DISPATCHES: ResearchPost[] = [
     ]),
     tags: ['optics', 'caustics', 'geometry', 'polar-curves'],
     endorsementsCount: 29,
+    commentsCount: 1,
     isPublic: true,
   },
   {
@@ -110,6 +157,7 @@ export const INITIAL_RESEARCH_DISPATCHES: ResearchPost[] = [
     ]),
     tags: ['calculus', 'probability', 'inflection-points', 'gauss'],
     endorsementsCount: 51,
+    commentsCount: 4,
     isPublic: true,
   },
 ];
@@ -134,9 +182,21 @@ export async function fetchResearchPosts(): Promise<ResearchPost[]> {
       if (data.attachedExpressionsJson) {
         try {
           attached = JSON.parse(data.attachedExpressionsJson);
-        } catch {
-          // ignore parsing error
-        }
+        } catch {}
+      }
+
+      let media: MediaAttachment[] | undefined = undefined;
+      if (data.mediaAttachmentsJson) {
+        try {
+          media = JSON.parse(data.mediaAttachmentsJson);
+        } catch {}
+      }
+
+      let steps: VlogStep[] | undefined = undefined;
+      if (data.vlogStepsJson) {
+        try {
+          steps = JSON.parse(data.vlogStepsJson);
+        } catch {}
       }
 
       remotePosts.push({
@@ -151,8 +211,14 @@ export async function fetchResearchPosts(): Promise<ResearchPost[]> {
         body: data.body,
         attachedExpressionsJson: data.attachedExpressionsJson,
         attachedExpressions: attached,
+        mediaAttachments: media,
+        mediaAttachmentsJson: data.mediaAttachmentsJson,
+        vlogVideoUrl: data.vlogVideoUrl,
+        vlogSteps: steps,
+        vlogStepsJson: data.vlogStepsJson,
         tags: Array.isArray(data.tags) ? data.tags : [],
         endorsementsCount: data.endorsementsCount || 0,
+        commentsCount: data.commentsCount || 0,
         isPublic: Boolean(data.isPublic),
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
@@ -170,23 +236,29 @@ export async function fetchResearchPosts(): Promise<ResearchPost[]> {
             attached = JSON.parse(seed.attachedExpressionsJson);
           } catch {}
         }
-        merged.push({ ...seed, attachedExpressions: attached });
+        let steps: VlogStep[] | undefined = undefined;
+        if (seed.vlogStepsJson) {
+          try {
+            steps = JSON.parse(seed.vlogStepsJson);
+          } catch {}
+        }
+        merged.push({ ...seed, attachedExpressions: attached, vlogSteps: steps });
       }
     }
 
     return merged;
   } catch (err) {
     handleFirestoreError(err, OperationType.LIST, 'research_posts');
-    // Graceful fallback to rich curated seeds
     return INITIAL_RESEARCH_DISPATCHES.map((s) => ({
       ...s,
       attachedExpressions: s.attachedExpressionsJson ? JSON.parse(s.attachedExpressionsJson) : undefined,
+      vlogSteps: s.vlogStepsJson ? JSON.parse(s.vlogStepsJson) : undefined,
     }));
   }
 }
 
 /**
- * Publishes a new theorem/research post to Firestore
+ * Publishes a new theorem/vlog research post to Firestore
  */
 export async function createResearchPost(params: {
   title: string;
@@ -198,11 +270,20 @@ export async function createResearchPost(params: {
   latexStatement: string;
   body: string;
   attachedExpressions?: GraphExpression[];
+  mediaAttachments?: MediaAttachment[];
+  vlogVideoUrl?: string;
+  vlogSteps?: VlogStep[];
   tags: string[];
 }): Promise<ResearchPost> {
   const postId = `th_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const attachedExpressionsJson = params.attachedExpressions
     ? JSON.stringify(params.attachedExpressions)
+    : '';
+  const mediaAttachmentsJson = params.mediaAttachments
+    ? JSON.stringify(params.mediaAttachments)
+    : '';
+  const vlogStepsJson = params.vlogSteps
+    ? JSON.stringify(params.vlogSteps)
     : '';
 
   const docRef = doc(db, 'research_posts', postId);
@@ -217,8 +298,12 @@ export async function createResearchPost(params: {
     latexStatement: params.latexStatement.trim(),
     body: params.body.trim(),
     attachedExpressionsJson,
-    tags: params.tags.filter((t) => t.trim().length > 0).slice(0, 8),
+    mediaAttachmentsJson,
+    vlogVideoUrl: params.vlogVideoUrl?.trim() || '',
+    vlogStepsJson,
+    tags: params.tags.filter((t) => t.trim().length > 0).slice(0, 10),
     endorsementsCount: 1,
+    commentsCount: 0,
     isPublic: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -230,6 +315,8 @@ export async function createResearchPost(params: {
       id: postId,
       ...newPostData,
       attachedExpressions: params.attachedExpressions,
+      mediaAttachments: params.mediaAttachments,
+      vlogSteps: params.vlogSteps,
     };
   } catch (err) {
     handleFirestoreError(err, OperationType.CREATE, `research_posts/${postId}`);
@@ -238,12 +325,10 @@ export async function createResearchPost(params: {
 }
 
 /**
- * Endorses a research post (+1 peer endorsement)
+ * Endorses / Likes a research post (+1 peer endorsement)
  */
 export async function endorseResearchPost(postId: string): Promise<void> {
-  // If it's a seed post, skip Firestore write
   if (postId.startsWith('seed_')) return;
-
   const docRef = doc(db, 'research_posts', postId);
   try {
     await updateDoc(docRef, {
@@ -265,6 +350,148 @@ export async function deleteResearchPost(postId: string): Promise<void> {
     await deleteDoc(docRef);
   } catch (err) {
     handleFirestoreError(err, OperationType.DELETE, `research_posts/${postId}`);
+    throw err;
+  }
+}
+
+// Seed Comments for Curated Posts
+const SEED_COMMENTS: Record<string, ResearchComment[]> = {
+  seed_fourier_gibbs: [
+    {
+      id: 'sc1',
+      postId: 'seed_fourier_gibbs',
+      authorId: 'scholar_dirichlet',
+      authorName: 'Peter Dirichlet',
+      authorTitle: 'Professor of Convergence',
+      authorAvatarEmoji: '✨',
+      content: 'Remarkable demonstration. Notice that the overshoot location shrinks toward 0 at rate pi/(2N), verifying uniform convergence fails at the jump boundary.',
+      createdAt: '2 days ago',
+    },
+    {
+      id: 'sc2',
+      postId: 'seed_fourier_gibbs',
+      authorId: 'scholar_fejer',
+      authorName: 'Lipót Fejér',
+      authorTitle: 'Cesàro Summation Pioneer',
+      authorAvatarEmoji: '📜',
+      content: 'Employing Fejér arithmetic mean sums eliminates this Gibbs overshoot entirely, yielding positive kernel convergence!',
+      createdAt: '1 day ago',
+    },
+  ],
+  seed_poincare_bendixson: [
+    {
+      id: 'sc3',
+      postId: 'seed_poincare_bendixson',
+      authorId: 'scholar_bendixson',
+      authorName: 'Ivar Bendixson',
+      authorTitle: 'Dynamical Topologist',
+      authorAvatarEmoji: '🔄',
+      content: 'Because the divergence of the vector field changes sign across x = ±1, the Poincaré index theorem guarantees exactly one limit cycle.',
+      createdAt: '3 days ago',
+    },
+  ],
+};
+
+/**
+ * Fetches all comments for a research post
+ */
+export async function fetchPostComments(postId: string): Promise<ResearchComment[]> {
+  const seedComments = SEED_COMMENTS[postId] || [];
+  if (postId.startsWith('seed_')) {
+    return seedComments;
+  }
+
+  try {
+    const commentsRef = collection(db, 'research_posts', postId, 'comments');
+    const q = query(commentsRef, limit(100));
+    const snap = await getDocs(q);
+    const comments: ResearchComment[] = [];
+
+    snap.forEach((d) => {
+      const data = d.data();
+      comments.push({
+        id: d.id,
+        postId: data.postId || postId,
+        authorId: data.authorId,
+        authorName: data.authorName || 'Peer Scholar',
+        authorTitle: data.authorTitle,
+        authorAvatarEmoji: data.authorAvatarEmoji || '💬',
+        content: data.content,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+      });
+    });
+
+    return [...comments, ...seedComments];
+  } catch (err) {
+    handleFirestoreError(err, OperationType.LIST, `research_posts/${postId}/comments`);
+    return seedComments;
+  }
+}
+
+/**
+ * Adds a new comment to a research post
+ */
+export async function addPostComment(
+  postId: string,
+  comment: {
+    authorId: string;
+    authorName: string;
+    authorTitle?: string;
+    authorAvatarEmoji?: string;
+    content: string;
+  }
+): Promise<ResearchComment> {
+  const commentId = `cm_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const commentDocRef = doc(db, 'research_posts', postId, 'comments', commentId);
+
+  const commentData = {
+    postId,
+    authorId: comment.authorId,
+    authorName: comment.authorName,
+    authorTitle: comment.authorTitle || 'Mathematical Scholar',
+    authorAvatarEmoji: comment.authorAvatarEmoji || '💬',
+    content: comment.content.trim(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  try {
+    await setDoc(commentDocRef, commentData);
+    // Increment post commentsCount
+    if (!postId.startsWith('seed_')) {
+      const postRef = doc(db, 'research_posts', postId);
+      await updateDoc(postRef, {
+        commentsCount: increment(1),
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    return {
+      id: commentId,
+      ...commentData,
+    };
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, `research_posts/${postId}/comments/${commentId}`);
+    throw err;
+  }
+}
+
+/**
+ * Deletes a comment from a research post
+ */
+export async function deletePostComment(postId: string, commentId: string): Promise<void> {
+  if (postId.startsWith('seed_')) return;
+  const commentDocRef = doc(db, 'research_posts', postId, 'comments', commentId);
+  try {
+    await deleteDoc(commentDocRef);
+    const postRef = doc(db, 'research_posts', postId);
+    await updateDoc(postRef, {
+      commentsCount: increment(-1),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `research_posts/${postId}/comments/${commentId}`);
     throw err;
   }
 }

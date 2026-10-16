@@ -112,7 +112,7 @@
     },
     "ResearchPost": {
       "title": "ResearchPost",
-      "description": "A mathematical research dispatch containing theorems, conjectures, lemmas, proofs, LaTeX formulas, and attached locus expressions",
+      "description": "A mathematical research dispatch or vlog theorem publication containing theorems, proofs, LaTeX, attached loci, media attachments, and comments count",
       "type": "object",
       "properties": {
         "title": {
@@ -145,9 +145,21 @@
         },
         "body": {
           "type": "string",
-          "maxLength": 5000
+          "maxLength": 10000
         },
         "attachedExpressionsJson": {
+          "type": "string",
+          "maxLength": 25000
+        },
+        "mediaAttachmentsJson": {
+          "type": "string",
+          "maxLength": 65000
+        },
+        "vlogVideoUrl": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "vlogStepsJson": {
           "type": "string",
           "maxLength": 25000
         },
@@ -159,6 +171,9 @@
           "description": "Disciplinary tags for categorizing research posts"
         },
         "endorsementsCount": {
+          "type": "number"
+        },
+        "commentsCount": {
           "type": "number"
         },
         "isPublic": {
@@ -180,6 +195,157 @@
         "latexStatement",
         "body",
         "isPublic"
+      ]
+    },
+    "ResearchComment": {
+      "title": "ResearchComment",
+      "description": "Peer reviews and scholarly commentary on research dispatches and vlog publications",
+      "type": "object",
+      "properties": {
+        "postId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "authorId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "authorName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "authorTitle": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "authorAvatarEmoji": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "postId",
+        "authorId",
+        "authorName",
+        "content"
+      ]
+    },
+    "Friendship": {
+      "title": "Friendship",
+      "description": "Scholarly peer connection between two authenticated users allowing direct 1-to-1 P2P and chat",
+      "type": "object",
+      "properties": {
+        "user1Id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "user2Id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "user1Name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "user2Name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "user1Avatar": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "user2Avatar": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "status": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "initiatedBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "user1Id",
+        "user2Id",
+        "status",
+        "initiatedBy"
+      ]
+    },
+    "DirectP2PSession": {
+      "title": "DirectP2PSession",
+      "description": "Seamless real-time P2P WebRTC session between mutual friends without QR codes or room scanning",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "activeHost": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "hostOffer": {
+          "type": "string",
+          "maxLength": 65000
+        },
+        "guestAnswer": {
+          "type": "string",
+          "maxLength": 65000
+        },
+        "graphSyncJson": {
+          "type": "string",
+          "maxLength": 100000
+        },
+        "chatMessagesJson": {
+          "type": "string",
+          "maxLength": 100000
+        },
+        "status": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "sessionId",
+        "status"
       ]
     },
     "P2PRoom": {
@@ -237,7 +403,19 @@
     },
     "/research_posts/{postId}": {
       "schema": "ResearchPost",
-      "description": "Collection of peer research posts, theorems, conjectures, and proofs"
+      "description": "Collection of peer research posts, vlog theorems, conjectures, and proofs"
+    },
+    "/research_posts/{postId}/comments/{commentId}": {
+      "schema": "ResearchComment",
+      "description": "Comments and scholarly peer reviews on research dispatches"
+    },
+    "/friendships/{friendshipId}": {
+      "schema": "Friendship",
+      "description": "Peer friendships enabling direct 1-to-1 P2P collaboration"
+    },
+    "/direct_p2p/{sessionId}": {
+      "schema": "DirectP2PSession",
+      "description": "Direct peer-to-peer real-time session between friends"
     },
     "/p2p_rooms/{roomId}": {
       "schema": "P2PRoom",
