@@ -273,7 +273,25 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       const lineWidth = isCurrentActive ? 3.0 : 2.2;
 
       if (parsed.type === 'explicit') {
-        if (parsed.evalY) {
+        // Render all Y branches (e.g. y = ±x or y = ±sqrt(x))
+        if (parsed.branchesY && parsed.branchesY.length > 0) {
+          parsed.branchesY.forEach((branchFn) => {
+            const fn = (x: number) => branchFn(x, 0, 0, 0, scope);
+            drawExplicitCurveY(ctx, fn, viewport, expr.color, lineWidth);
+
+            if (expr.showDerivative) {
+              const d1 = (x: number) => numericalDerivative(fn, x);
+              drawDerivativeCurve(ctx, d1, viewport, expr.color, true);
+            }
+            if (expr.showSecondDerivative) {
+              const d2 = (x: number) => numericalSecondDerivative(fn, x);
+              drawDerivativeCurve(ctx, d2, viewport, expr.color, false);
+            }
+            if (expr.showTangent && expr.tangentX !== undefined) {
+              drawTangentLine(ctx, fn, expr.tangentX, viewport, expr.color, theme);
+            }
+          });
+        } else if (parsed.evalY) {
           const fn = (x: number) => parsed.evalY!(x, 0, 0, 0, scope);
           drawExplicitCurveY(ctx, fn, viewport, expr.color, lineWidth);
 
@@ -291,7 +309,15 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           if (expr.showTangent && expr.tangentX !== undefined) {
             drawTangentLine(ctx, fn, expr.tangentX, viewport, expr.color, theme);
           }
-        } else if (parsed.evalX) {
+        }
+
+        // Render all X branches (e.g. x = ±2 or vertical lines)
+        if (parsed.branchesX && parsed.branchesX.length > 0) {
+          parsed.branchesX.forEach((branchFn) => {
+            const fn = (y: number) => branchFn(0, y, 0, 0, scope);
+            drawExplicitCurveX(ctx, fn, viewport, expr.color, lineWidth);
+          });
+        } else if (parsed.evalX && (!parsed.branchesY || parsed.branchesY.length === 0)) {
           const fn = (y: number) => parsed.evalX!(0, y, 0, 0, scope);
           drawExplicitCurveX(ctx, fn, viewport, expr.color, lineWidth);
         }
@@ -311,11 +337,69 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           drawPolarCurve(ctx, fnR, thMin, thMax, viewport, expr.color, lineWidth);
         }
       } else if (parsed.type === 'implicit') {
-        if (parsed.evalImplicit) {
-          // Use coarser step while dragging for fluid 60fps interaction, finer when stationary
+        // If exact symbolic branches exist (e.g. x² = y², y² = 4, etc.), render them cleanly!
+        let hasRenderedBranches = false;
+        if (parsed.inequality === 'none') {
+          if (parsed.branchesY && parsed.branchesY.length > 0) {
+            parsed.branchesY.forEach((branchFn) => {
+              const fn = (x: number) => branchFn(x, 0, 0, 0, scope);
+              drawExplicitCurveY(ctx, fn, viewport, expr.color, lineWidth);
+            });
+            hasRenderedBranches = true;
+          }
+          if (parsed.branchesX && parsed.branchesX.length > 0) {
+            parsed.branchesX.forEach((branchFn) => {
+              const fn = (y: number) => branchFn(0, y, 0, 0, scope);
+              drawExplicitCurveX(ctx, fn, viewport, expr.color, lineWidth);
+            });
+            hasRenderedBranches = true;
+          }
+        }
+
+        // If no explicit branches exist (or general non-algebraic implicit equation), use Marching Squares
+        if (!hasRenderedBranches && parsed.evalImplicit) {
           const cellSize = isDragging ? 4.5 : 2.0;
           const contour = computeImplicitContour(parsed.evalImplicit, viewport, scope, cellSize);
           renderContourSegments(ctx, contour.segments, expr.color, lineWidth);
+        }
+      } else if (parsed.type === 'system') {
+        // Render all sub-equations in the system
+        if (parsed.subEquations) {
+          parsed.subEquations.forEach((subP) => {
+            if (subP.type === 'explicit') {
+              if (subP.branchesY && subP.branchesY.length > 0) {
+                subP.branchesY.forEach((branchFn) => {
+                  const fn = (x: number) => branchFn(x, 0, 0, 0, scope);
+                  drawExplicitCurveY(ctx, fn, viewport, expr.color, lineWidth);
+                });
+              } else if (subP.evalY) {
+                const fn = (x: number) => subP.evalY!(x, 0, 0, 0, scope);
+                drawExplicitCurveY(ctx, fn, viewport, expr.color, lineWidth);
+              }
+              if (subP.branchesX && subP.branchesX.length > 0) {
+                subP.branchesX.forEach((branchFn) => {
+                  const fn = (y: number) => branchFn(0, y, 0, 0, scope);
+                  drawExplicitCurveX(ctx, fn, viewport, expr.color, lineWidth);
+                });
+              } else if (subP.evalX) {
+                const fn = (y: number) => subP.evalX!(0, y, 0, 0, scope);
+                drawExplicitCurveX(ctx, fn, viewport, expr.color, lineWidth);
+              }
+            } else if (subP.evalImplicit) {
+              const cellSize = isDragging ? 4.5 : 2.0;
+              const contour = computeImplicitContour(subP.evalImplicit, viewport, scope, cellSize);
+              renderContourSegments(ctx, contour.segments, expr.color, lineWidth);
+            }
+          });
+        }
+        // Draw system solution intersection points with glowing nodes
+        if (parsed.systemSolutions && parsed.systemSolutions.length > 0) {
+          parsed.systemSolutions.forEach((sol) => {
+            const s = worldToScreen(sol.x, sol.y, viewport);
+            if (s.x >= -30 && s.x <= viewport.width + 30 && s.y >= -30 && s.y <= viewport.height + 30) {
+              drawCalculusNode(ctx, s.x, s.y, 'intersection', `Sol: ${sol.label}`, theme);
+            }
+          });
         }
       } else if (parsed.type === 'point') {
         if (expr.pointX !== undefined && expr.pointY !== undefined) {
@@ -328,48 +412,106 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     if (activeExpressionId) {
       const activeParsed = parsedEquations.get(activeExpressionId);
       const activeExpr = expressions.find((e) => e.id === activeExpressionId);
-      if (activeParsed && activeExpr && activeParsed.type === 'explicit' && activeParsed.evalY) {
-        const fn = (x: number) => activeParsed.evalY!(x, 0, 0, 0, scope);
-        const roots = findRootsInInterval(fn, viewport.xMin, viewport.xMax, 300);
-        roots.forEach((rx) => {
-          const s = worldToScreen(rx, 0, viewport);
-          if (s.x >= 0 && s.x <= viewport.width && s.y >= 0 && s.y <= viewport.height) {
-            drawCalculusNode(ctx, s.x, s.y, 'root', `(${rx.toFixed(3)}, 0)`, theme);
-          }
-        });
+      if (activeParsed && activeExpr) {
+        const activeYFns: ((x: number) => number)[] = [];
+        if (activeParsed.branchesY && activeParsed.branchesY.length > 0) {
+          activeParsed.branchesY.forEach((bfn) => activeYFns.push((x) => bfn(x, 0, 0, 0, scope)));
+        } else if (activeParsed.evalY) {
+          activeYFns.push((x) => activeParsed.evalY!(x, 0, 0, 0, scope));
+        }
 
-        const extrema = findExtremaInInterval(fn, viewport.xMin, viewport.xMax, 250);
-        extrema.forEach((pt) => {
-          const s = worldToScreen(pt.x, pt.y, viewport);
-          if (s.x >= 0 && s.x <= viewport.width && s.y >= 0 && s.y <= viewport.height) {
-            drawCalculusNode(ctx, s.x, s.y, pt.type, `(${pt.x.toFixed(3)}, ${pt.y.toFixed(3)})`, theme);
-          }
+        activeYFns.forEach((fn) => {
+          const roots = findRootsInInterval(fn, viewport.xMin, viewport.xMax, 300);
+          roots.forEach((rx) => {
+            const s = worldToScreen(rx, 0, viewport);
+            if (s.x >= 0 && s.x <= viewport.width && s.y >= 0 && s.y <= viewport.height) {
+              drawCalculusNode(ctx, s.x, s.y, 'root', `(${rx.toFixed(3)}, 0)`, theme);
+            }
+          });
+
+          const extrema = findExtremaInInterval(fn, viewport.xMin, viewport.xMax, 250);
+          extrema.forEach((pt) => {
+            const s = worldToScreen(pt.x, pt.y, viewport);
+            if (s.x >= 0 && s.x <= viewport.width && s.y >= 0 && s.y <= viewport.height) {
+              drawCalculusNode(ctx, s.x, s.y, pt.type, `(${pt.x.toFixed(3)}, ${pt.y.toFixed(3)})`, theme);
+            }
+          });
         });
       }
     }
 
-    // 7. Draw Intersections between visible explicit functions
+    // 7. Draw Intersections between visible explicit functions, branches, and vertical lines
     const explicitFns: { id: string; fn: (x: number) => number }[] = [];
+    const verticalLines: { id: string; xVal: number }[] = [];
+
+    const addParsedBranches = (idPrefix: string, p: ParsedEquationInfo) => {
+      if (p.type === 'explicit') {
+        if (p.branchesY && p.branchesY.length > 0) {
+          p.branchesY.forEach((bfn, idx) => {
+            explicitFns.push({ id: `${idPrefix}_by${idx}`, fn: (x: number) => bfn(x, 0, 0, 0, scope) });
+          });
+        } else if (p.evalY) {
+          explicitFns.push({ id: `${idPrefix}_y`, fn: (x: number) => p.evalY!(x, 0, 0, 0, scope) });
+        }
+        if (p.branchesX && p.branchesX.length > 0) {
+          p.branchesX.forEach((bfn, idx) => {
+            const sample = bfn(0, 0, 0, 0, scope);
+            if (!isNaN(sample) && isFinite(sample)) {
+              verticalLines.push({ id: `${idPrefix}_bx${idx}`, xVal: sample });
+            }
+          });
+        } else if (p.evalX) {
+          const sample = p.evalX(0, 0, 0, 0, scope);
+          if (!isNaN(sample) && isFinite(sample)) {
+            verticalLines.push({ id: `${idPrefix}_x`, xVal: sample });
+          }
+        }
+      } else if (p.type === 'system' && p.subEquations) {
+        p.subEquations.forEach((subP, subIdx) => {
+          addParsedBranches(`${idPrefix}_sub${subIdx}`, subP);
+        });
+      }
+    };
+
     expressions.forEach((e) => {
       if (!e.visible) return;
       const p = parsedEquations.get(e.id);
-      if (p && p.type === 'explicit' && p.evalY) {
-        explicitFns.push({ id: e.id, fn: (x: number) => p.evalY!(x, 0, 0, 0, scope) });
+      if (p) {
+        addParsedBranches(e.id, p);
       }
     });
 
+    const renderedInters = new Set<string>();
+    const markIntersection = (x: number, y: number) => {
+      if (isNaN(x) || isNaN(y) || !isFinite(x) || !isFinite(y)) return;
+      const key = `${x.toFixed(4)},${y.toFixed(4)}`;
+      if (renderedInters.has(key)) return;
+      renderedInters.add(key);
+
+      const s = worldToScreen(x, y, viewport);
+      if (s.x >= 0 && s.x <= viewport.width && s.y >= 0 && s.y <= viewport.height) {
+        drawCalculusNode(ctx, s.x, s.y, 'intersection', `(${x.toFixed(3)}, ${y.toFixed(3)})`, theme);
+      }
+    };
+
+    // Intersections between explicit functions
     if (explicitFns.length >= 2) {
       for (let i = 0; i < explicitFns.length; i++) {
         for (let j = i + 1; j < explicitFns.length; j++) {
           const inters = findIntersections(explicitFns[i].fn, explicitFns[j].fn, viewport.xMin, viewport.xMax, 200);
-          inters.forEach((pt) => {
-            const s = worldToScreen(pt.x, pt.y, viewport);
-            if (s.x >= 0 && s.x <= viewport.width && s.y >= 0 && s.y <= viewport.height) {
-              drawCalculusNode(ctx, s.x, s.y, 'intersection', `(${pt.x.toFixed(3)}, ${pt.y.toFixed(3)})`, theme);
-            }
-          });
+          inters.forEach((pt) => markIntersection(pt.x, pt.y));
         }
       }
+    }
+
+    // Intersections between vertical lines and explicit functions
+    if (verticalLines.length > 0 && explicitFns.length > 0) {
+      verticalLines.forEach((vl) => {
+        explicitFns.forEach((ef) => {
+          const y = ef.fn(vl.xVal);
+          markIntersection(vl.xVal, y);
+        });
+      });
     }
 
     // 8. Draw Traced Point bead if hovering/tracing
@@ -508,7 +650,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       return;
     }
 
-    // Proximity search for active curve tracing
+    // Proximity search for active curve tracing across all branches
     if (!isDragging) {
       let nearestDist = 18; // screen pixels threshold
       let foundTrace: typeof tracedPoint = null;
@@ -518,14 +660,36 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         const parsed = parsedEquations.get(expr.id);
         if (!parsed) return;
 
-        if (parsed.type === 'explicit' && parsed.evalY) {
-          const curY = parsed.evalY(world.x, 0, 0, 0, scope);
+        // Check Y branches & functions
+        const yFns: ((x: number) => number)[] = [];
+        const xFns: ((y: number) => number)[] = [];
+
+        const collectFns = (p: ParsedEquationInfo) => {
+          if (p.branchesY && p.branchesY.length > 0) {
+            p.branchesY.forEach((bfn) => yFns.push((x) => bfn(x, 0, 0, 0, scope)));
+          } else if (p.evalY) {
+            yFns.push((x) => p.evalY!(x, 0, 0, 0, scope));
+          }
+          if (p.branchesX && p.branchesX.length > 0) {
+            p.branchesX.forEach((bfn) => xFns.push((y) => bfn(0, y, 0, 0, scope)));
+          } else if (p.evalX) {
+            xFns.push((y) => p.evalX!(0, y, 0, 0, scope));
+          }
+          if (p.type === 'system' && p.subEquations) {
+            p.subEquations.forEach((subP) => collectFns(subP));
+          }
+        };
+
+        collectFns(parsed);
+
+        yFns.forEach((fn) => {
+          const curY = fn(world.x);
           if (!isNaN(curY) && isFinite(curY)) {
             const screenPt = worldToScreen(world.x, curY, viewport);
             const dist = Math.hypot(screenPt.x - sx, screenPt.y - sy);
             if (dist < nearestDist) {
               nearestDist = dist;
-              const slope = numericalDerivative((x) => parsed.evalY!(x, 0, 0, 0, scope), world.x);
+              const slope = numericalDerivative(fn, world.x);
               foundTrace = {
                 x: world.x,
                 y: curY,
@@ -537,7 +701,27 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
               };
             }
           }
-        }
+        });
+
+        xFns.forEach((fn) => {
+          const curX = fn(world.y);
+          if (!isNaN(curX) && isFinite(curX)) {
+            const screenPt = worldToScreen(curX, world.y, viewport);
+            const dist = Math.hypot(screenPt.x - sx, screenPt.y - sy);
+            if (dist < nearestDist) {
+              nearestDist = dist;
+              foundTrace = {
+                x: curX,
+                y: world.y,
+                sx: screenPt.x,
+                sy: screenPt.y,
+                slope: Infinity,
+                color: expr.color,
+                label: `(${curX.toFixed(3)}, ${world.y.toFixed(3)})`,
+              };
+            }
+          }
+        });
       });
 
       setTracedPoint(foundTrace);

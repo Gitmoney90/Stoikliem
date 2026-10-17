@@ -62,6 +62,7 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
   const isExplicit = expression.type === 'explicit' || parsedInfo?.type === 'explicit';
   const isVector = expression.type === 'complex_vector' || parsedInfo?.type === 'complex_vector';
   const isFractal = expression.type === 'fractal' || parsedInfo?.type === 'fractal';
+  const isSystem = expression.type === 'system' || parsedInfo?.type === 'system';
 
   // Smart parameter detector: detects variables like a, b, c, t needing sliders
   const unboundVariables = React.useMemo(() => {
@@ -320,6 +321,37 @@ export const ExpressionItem: React.FC<ExpressionItemProps> = ({
               all
             </button>
           )}
+        </div>
+      )}
+
+      {/* System of Equations Solutions Badge */}
+      {isSystem && parsedInfo?.systemSolutions && parsedInfo.systemSolutions.length > 0 && (
+        <div className="mt-2 pt-1.5 border-t flex items-center gap-1.5 flex-wrap text-2xs select-none" style={{ borderColor: theme.border }}>
+          <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+            System Solutions ({parsedInfo.systemSolutions.length}):
+          </span>
+          {parsedInfo.systemSolutions.map((sol, idx) => (
+            <span
+              key={idx}
+              className="px-1.5 py-0.5 rounded font-mono text-3xs font-bold border"
+              style={{
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                borderColor: 'rgba(16, 185, 129, 0.3)',
+                color: theme.textPrimary,
+              }}
+            >
+              {sol.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Multiple Linear Branches Indicator (e.g. y² = x² -> y = ±x) */}
+      {!isSystem && parsedInfo?.branchesY && parsedInfo.branchesY.length > 1 && (
+        <div className="mt-1.5 pt-1 border-t flex items-center gap-1.5 text-2xs select-none opacity-80" style={{ borderColor: theme.border }}>
+          <span className="text-3xs font-mono font-medium" style={{ color: theme.textSecondary }}>
+            ✦ Decomposed into {parsedInfo.branchesY.length} exact linear branches
+          </span>
         </div>
       )}
 

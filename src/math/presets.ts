@@ -120,6 +120,20 @@ export const CLASSIC_PRESETS: CurvePreset[] = [
     gridMode: 'cartesian',
   },
   {
+    id: 'degenerate_conic_crossing_lines',
+    name: 'Degenerate Conic: x² = y²',
+    category: 'Implicit Curves',
+    historicalPeriod: 'Classical Geometry',
+    discoverer: 'Apollonius of Perga',
+    description: 'A canonical degenerate conic section factorizing as (x - y)(x + y) = 0, decomposing into the two orthogonal diagonal lines y = x and y = -x with a nodal saddle intersection at the origin.',
+    expressions: [
+      { rawText: 'x² = y²', color: '#2563EB' },
+      { rawText: '(x - y)^2 = 0', color: '#DC2626' },
+    ],
+    viewport: { xMin: -5, xMax: 5, yMin: -5, yMax: 5 },
+    gridMode: 'cartesian',
+  },
+  {
     id: 'cardioid',
     name: 'Cardioid of Castillon',
     category: 'Polar Classics',

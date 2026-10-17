@@ -1,5 +1,6 @@
-import { ASTNode, Parser } from './parser';
+import { ASTNode, Parser, normalizeMathInput } from './parser';
 import { EquationType, InequalityType } from '../types/graph';
+import nerdamer from 'nerdamer';
 
 export type EvalScope = Record<string, number>;
 
@@ -176,8 +177,12 @@ export interface ParsedEquationInfo {
   inequality: InequalityType;
   // For explicit y = f(x):
   evalY?: CompiledMathFn;
+  // Multiple explicit Y branches (e.g. y = ±x or y = ±sqrt(x)):
+  branchesY?: CompiledMathFn[];
   // For explicit x = g(y):
   evalX?: CompiledMathFn;
+  // Multiple explicit X branches (e.g. x = ±2):
+  branchesX?: CompiledMathFn[];
   // For polar r = f(theta):
   evalR?: CompiledMathFn;
   // For implicit F(x, y) = 0: (returns difference left - right)
@@ -196,8 +201,225 @@ export interface ParsedEquationInfo {
   // For point:
   pointX?: number;
   pointY?: number;
+  // For systems of equations:
+  subEquations?: ParsedEquationInfo[];
+  systemSolutions?: { x: number; y: number; label: string }[];
   // Display clean math
   displayFormula: string;
+}
+
+export function getSquareFreeTarget(expr: string): string {
+  try {
+    const factored = (nerdamer as any).factor(expr).toString();
+    let cleaned = factored;
+    let prev = '';
+    while (prev !== cleaned) {
+      prev = cleaned;
+      cleaned = cleaned.replace(/\)\s*\^\s*([0-9]+)/g, ')');
+    }
+    return cleaned;
+  } catch {
+    return expr;
+  }
+}
+
+export function isLinearSolution(solStr: string, varName: 'x' | 'y'): boolean {
+  try {
+    const d1 = (nerdamer as any).diff(solStr, varName).toString();
+    const d2 = (nerdamer as any).diff(d1, varName).toString();
+    return d2 === '0';
+  } catch {
+    return false;
+  }
+}
+
+export function hasSquareRoot(expr: string): boolean {
+  return /\b(?:sqrt|cbrt)\b|\^\s*\(?\s*1\/[0-9]+/i.test(expr);
+}
+
+export function isSimplePolynomial(expr: string): boolean {
+  if (/\b(?:sin|cos|tan|sec|csc|cot|asin|acos|atan|sinh|cosh|tanh|exp|ln|log|sqrt|cbrt)\b/i.test(expr)) {
+    return false;
+  }
+  if (/\^\s*\(?\s*[0-9]*\.[0-9]+/i.test(expr) || /\^\s*\(?\s*[0-9]+\s*\/\s*[0-9]+/i.test(expr)) {
+    return false;
+  }
+  return true;
+}
+
+export function splitSystemEquations(input: string): string[] {
+  const text = input.trim();
+  const unwrapped = text.startsWith('{') && text.endsWith('}') ? text.slice(1, -1).trim() : text;
+
+  // Don't split if it is a parametric pair like x = cos(t), y = sin(t)
+  const isParametricPair =
+    /^(?:x\s*=\s*.+?,\s*y\s*=\s*.+)$/i.test(unwrapped) &&
+    /\b(?:t|theta|th)\b/i.test(unwrapped);
+  if (isParametricPair) {
+    return [unwrapped];
+  }
+
+  const parts: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (let i = 0; i < unwrapped.length; i++) {
+    const ch = unwrapped[i];
+    if (ch === '(' || ch === '[' || ch === '{') depth++;
+    else if (ch === ')' || ch === ']' || ch === '}') depth--;
+
+    // Split on ;, newline, &, or comma outside brackets
+    if (depth === 0 && (ch === ';' || ch === '\n' || ch === '&' || ch === ',')) {
+      if (current.trim()) parts.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim()) parts.push(current.trim());
+  return parts;
+}
+
+export function solveSystemEquations(eqs: string[]): { x: number; y: number; label: string }[] {
+  try {
+    const sol = (nerdamer as any).solveSystem(eqs);
+    const points: { x: number; y: number; label: string }[] = [];
+    if (sol && sol.elements) {
+      sol.elements.forEach((dict: any) => {
+        if (dict._entries) {
+          let xVal = NaN;
+          let yVal = NaN;
+          const xStr = dict._entries.get('x')?.toString();
+          const yStr = dict._entries.get('y')?.toString();
+          if (xStr && !/\bi\b/.test(xStr)) {
+            try { xVal = parseFloat((nerdamer(xStr) as any).text('decimal')); } catch { xVal = parseFloat(xStr); }
+          }
+          if (yStr && !/\bi\b/.test(yStr)) {
+            try { yVal = parseFloat((nerdamer(yStr) as any).text('decimal')); } catch { yVal = parseFloat(yStr); }
+          }
+          if (!isNaN(xVal) && !isNaN(yVal) && isFinite(xVal) && isFinite(yVal)) {
+            // Avoid duplicates
+            if (!points.some(p => Math.abs(p.x - xVal) < 1e-5 && Math.abs(p.y - yVal) < 1e-5)) {
+              points.push({ x: xVal, y: yVal, label: `(${xVal.toFixed(3)}, ${yVal.toFixed(3)})` });
+            }
+          }
+        }
+      });
+    }
+    return points;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Decomposes algebraic equations into explicit branches for Y and X using computer algebra.
+ * E.g., x^2 = y^2 -> y = x, y = -x (linear lines)
+ *       y^2 = x   -> x = y^2 (explicit horizontal parabola)
+ *       x^2 = 4   -> x = 2, x = -2 (vertical lines)
+ *       (x-y)^2=0 -> y = x (linear line)
+ */
+export function solveEquationBranches(
+  targetExpr: string,
+  angleUnit: 'rad' | 'deg' = 'rad'
+): {
+  branchesY: CompiledMathFn[];
+  branchesX: CompiledMathFn[];
+  rawY: string[];
+  rawX: string[];
+  isAllLinear: boolean;
+  squareFreeTarget: string;
+  singlePolyY?: string;
+  singlePolyX?: string;
+} {
+  const branchesY: CompiledMathFn[] = [];
+  const branchesX: CompiledMathFn[] = [];
+  const rawY: string[] = [];
+  const rawX: string[] = [];
+
+  const squareFreeTarget = getSquareFreeTarget(targetExpr);
+
+  const extractSolutions = (target: string, varName: 'y' | 'x'): string[] => {
+    try {
+      const res = (nerdamer as any).solve(target, varName);
+      let list: string[] = [];
+      if (res && res.elements && Array.isArray(res.elements)) {
+        list = res.elements.map((e: any) => e.toString());
+      } else {
+        const str = res ? res.toString() : '';
+        if (str.startsWith('{') && str.endsWith('}')) {
+          list = str.slice(1, -1).split(',').map((s: string) => s.trim()).filter(Boolean);
+        } else if (str.startsWith('[') && str.endsWith(']')) {
+          list = str.slice(1, -1).split(',').map((s: string) => s.trim()).filter(Boolean);
+        } else if (str.trim().length > 0) {
+          list = [str.trim()];
+        }
+      }
+
+      return list.filter((item) => {
+        const trimmed = item.trim();
+        if (!trimmed) return false;
+        // Filter out imaginary solutions containing `i` or parameterized families `_n`
+        if (/\bi\b/.test(trimmed) || /_n\b/.test(trimmed)) return false;
+        // Filter out circular / unsolved references
+        const regexSelf = new RegExp(`\\b${varName}\\b`, 'i');
+        if (regexSelf.test(trimmed)) return false;
+        return true;
+      });
+    } catch {
+      return [];
+    }
+  };
+
+  const solY = extractSolutions(squareFreeTarget, 'y');
+  for (const s of solY) {
+    try {
+      const fn = compileExpression(s, angleUnit);
+      branchesY.push(fn);
+      rawY.push(s);
+    } catch {
+      // Continue
+    }
+  }
+
+  const solX = extractSolutions(squareFreeTarget, 'x');
+  for (const s of solX) {
+    if (branchesY.length > 0 && (hasVariable(s, 'y') || hasVariable(s, 'Y'))) {
+      continue;
+    }
+    try {
+      const fn = compileExpression(s, angleUnit);
+      branchesX.push(fn);
+      rawX.push(s);
+    } catch {
+      // Continue
+    }
+  }
+
+  const allLinearY = solY.length > 0 && solY.every((s) => isLinearSolution(s, 'x'));
+  const allLinearX = solX.length > 0 && solX.every((s) => isLinearSolution(s, 'y'));
+  const isAllLinear = (allLinearY && (branchesX.length === 0 || allLinearX)) ||
+                      (allLinearX && (branchesY.length === 0 || allLinearY));
+
+  // Check if one variable can be written as a single polynomial in the other without square roots (e.g. y^2 = x -> x = y^2)
+  let singlePolyX: string | undefined = undefined;
+  if (solX.length === 1 && !hasSquareRoot(solX[0]) && isSimplePolynomial(solX[0])) {
+    singlePolyX = solX[0];
+  }
+  let singlePolyY: string | undefined = undefined;
+  if (solY.length === 1 && !hasSquareRoot(solY[0]) && isSimplePolynomial(solY[0])) {
+    singlePolyY = solY[0];
+  }
+
+  return {
+    branchesY,
+    branchesX,
+    rawY,
+    rawX,
+    isAllLinear,
+    squareFreeTarget,
+    singlePolyY,
+    singlePolyX,
+  };
 }
 
 /**
@@ -207,9 +429,57 @@ export function parseEquation(
   rawInput: string,
   angleUnit: 'rad' | 'deg' = 'rad'
 ): ParsedEquationInfo {
-  const text = rawInput.trim();
+  const text = normalizeMathInput(rawInput).trim();
   if (!text) {
     throw new Error('Empty equation');
+  }
+
+  // Check for System of Equations: e.g. "2*x + y = 5, x - y = 1" or "{ x^2 = y^2; y = 2 }"
+  const subEqTexts = splitSystemEquations(text);
+  if (subEqTexts.length >= 2) {
+    const subEquations = subEqTexts.map((eqStr) => parseEquation(eqStr, angleUnit));
+    const systemSolutions = solveSystemEquations(subEqTexts);
+    return {
+      type: 'system',
+      inequality: 'none',
+      subEquations,
+      systemSolutions,
+      displayFormula: subEqTexts.join('  &  '),
+    };
+  }
+
+  // Check for ± in y = ± f(x)
+  const pmYMatch = text.match(/^y\s*=\s*±\s*(.+)$/i);
+  if (pmYMatch) {
+    const rhs = pmYMatch[1].trim();
+    const branchPos = compileExpression(`+(${rhs})`, angleUnit);
+    const branchNeg = compileExpression(`-(${rhs})`, angleUnit);
+    return {
+      type: 'explicit',
+      inequality: 'none',
+      evalY: branchPos,
+      branchesY: [branchPos, branchNeg],
+      evalImplicit: (x, y, scope) => {
+        const val = branchPos(x, 0, 0, 0, scope);
+        return Math.min(Math.abs(y - val), Math.abs(y + val));
+      },
+      displayFormula: `y = ±${rhs}`,
+    };
+  }
+
+  // Check for ± in x = ± g(y)
+  const pmXMatch = text.match(/^x\s*=\s*±\s*(.+)$/i);
+  if (pmXMatch) {
+    const rhs = pmXMatch[1].trim();
+    const branchPos = compileExpression(`+(${rhs})`, angleUnit);
+    const branchNeg = compileExpression(`-(${rhs})`, angleUnit);
+    return {
+      type: 'explicit',
+      inequality: 'none',
+      evalX: branchPos,
+      branchesX: [branchPos, branchNeg],
+      displayFormula: `x = ±${rhs}`,
+    };
   }
 
   // 0. Check for Fractals
@@ -439,22 +709,94 @@ export function parseEquation(
   }
 
   // 9. Check for General Implicit equations: f(x, y) = g(x, y) or f(x, y) <= g(x, y)
-  // Example: x^2 + y^2 = 25 or x^3 + y^3 - 3*x*y = 0
+  // Example: x^2 + y^2 = 25 or x^2 = y^2 or x^3 + y^3 - 3*x*y = 0
   const implicitMatch = text.match(/^(.+?)\s*(<=|>=|<|>|=)\s*(.+)$/);
   if (implicitMatch) {
-    const lhs = implicitMatch[1];
-    const op = implicitMatch[2];
-    const rhs = implicitMatch[3];
+    const lhs = implicitMatch[1].trim();
+    const op = implicitMatch[2].trim();
+    const rhs = implicitMatch[3].trim();
     const ineq: InequalityType =
       op === '<=' ? '<=' : op === '<' ? '<' : op === '>=' ? '>=' : op === '>' ? '>' : 'none';
 
     const fnLhs = compileExpression(lhs, angleUnit);
     const fnRhs = compileExpression(rhs, angleUnit);
+    const evalImplicit = (x: number, y: number, scope: EvalScope) =>
+      fnLhs(x, y, 0, 0, scope) - fnRhs(x, y, 0, 0, scope);
+
+    // If this is an equality equation (=), solve for explicit branches using computer algebra
+    if (ineq === 'none') {
+      const target = `(${lhs}) - (${rhs})`;
+      const {
+        branchesY,
+        branchesX,
+        isAllLinear,
+        squareFreeTarget,
+        singlePolyY,
+        singlePolyX,
+      } = solveEquationBranches(target, angleUnit);
+
+      // 1. If all solutions are linear lines (e.g. x^2 = y^2, y^2 = x^2, x^2 = 4, y^2 = 9, x*y = 0, (x-y)^2 = 0)
+      if (isAllLinear && (branchesY.length > 0 || branchesX.length > 0)) {
+        return {
+          type: 'explicit',
+          inequality: 'none',
+          evalY: branchesY[0],
+          branchesY,
+          evalX: branchesX[0],
+          branchesX,
+          evalImplicit,
+          displayFormula: text,
+        };
+      }
+
+      // 2. If one variable can be written as a single unconstrained polynomial without square roots (e.g. y^2 = x -> x = y^2)
+      if (singlePolyX && !hasSquareRoot(singlePolyX)) {
+        const fnX = compileExpression(singlePolyX, angleUnit);
+        return {
+          type: 'explicit',
+          inequality: 'none',
+          evalX: fnX,
+          branchesX: [fnX],
+          evalImplicit,
+          displayFormula: text,
+        };
+      }
+      if (singlePolyY && !hasSquareRoot(singlePolyY)) {
+        const fnY = compileExpression(singlePolyY, angleUnit);
+        return {
+          type: 'explicit',
+          inequality: 'none',
+          evalY: fnY,
+          branchesY: [fnY],
+          evalImplicit,
+          displayFormula: text,
+        };
+      }
+
+      // 3. For non-linear implicit curves (circles, ellipses, hyperbolas, periodic trigonometric curves, algebraic hearts):
+      // Use squareFreeTarget so that even-power equations like (x^2+y^2-4)^2 = 0 or (x-y)^2 = 0 have normal zero crossings in Marching Squares!
+      try {
+        const fnSqFree = compileExpression(squareFreeTarget, angleUnit);
+        return {
+          type: 'implicit',
+          inequality: ineq,
+          evalImplicit: (x, y, scope) => fnSqFree(x, y, 0, 0, scope),
+          displayFormula: text,
+        };
+      } catch {
+        return {
+          type: 'implicit',
+          inequality: ineq,
+          evalImplicit,
+          displayFormula: text,
+        };
+      }
+    }
 
     return {
       type: 'implicit',
       inequality: ineq,
-      evalImplicit: (x, y, scope) => fnLhs(x, y, 0, 0, scope) - fnRhs(x, y, 0, 0, scope),
+      evalImplicit,
       displayFormula: text,
     };
   }
@@ -483,12 +825,67 @@ export function parseEquation(
   // If contains both x and y -> implicit f(x, y) = 0
   if (hasVariable(text, 'x') && hasVariable(text, 'y')) {
     const compiled = compileExpression(text, angleUnit);
-    return {
-      type: 'implicit',
-      inequality: 'none',
-      evalImplicit: (x, y, scope) => compiled(x, y, 0, 0, scope),
-      displayFormula: `${text} = 0`,
-    };
+    const {
+      branchesY,
+      branchesX,
+      isAllLinear,
+      squareFreeTarget,
+      singlePolyY,
+      singlePolyX,
+    } = solveEquationBranches(text, angleUnit);
+
+    if (isAllLinear && (branchesY.length > 0 || branchesX.length > 0)) {
+      return {
+        type: 'explicit',
+        inequality: 'none',
+        evalY: branchesY[0],
+        branchesY,
+        evalX: branchesX[0],
+        branchesX,
+        evalImplicit: (x, y, scope) => compiled(x, y, 0, 0, scope),
+        displayFormula: `${text} = 0`,
+      };
+    }
+
+    if (singlePolyX && !hasSquareRoot(singlePolyX)) {
+      const fnX = compileExpression(singlePolyX, angleUnit);
+      return {
+        type: 'explicit',
+        inequality: 'none',
+        evalX: fnX,
+        branchesX: [fnX],
+        evalImplicit: (x, y, scope) => compiled(x, y, 0, 0, scope),
+        displayFormula: `${text} = 0`,
+      };
+    }
+    if (singlePolyY && !hasSquareRoot(singlePolyY)) {
+      const fnY = compileExpression(singlePolyY, angleUnit);
+      return {
+        type: 'explicit',
+        inequality: 'none',
+        evalY: fnY,
+        branchesY: [fnY],
+        evalImplicit: (x, y, scope) => compiled(x, y, 0, 0, scope),
+        displayFormula: `${text} = 0`,
+      };
+    }
+
+    try {
+      const fnSqFree = compileExpression(squareFreeTarget, angleUnit);
+      return {
+        type: 'implicit',
+        inequality: 'none',
+        evalImplicit: (x, y, scope) => fnSqFree(x, y, 0, 0, scope),
+        displayFormula: `${text} = 0`,
+      };
+    } catch {
+      return {
+        type: 'implicit',
+        inequality: 'none',
+        evalImplicit: (x, y, scope) => compiled(x, y, 0, 0, scope),
+        displayFormula: `${text} = 0`,
+      };
+    }
   }
 
   // Otherwise explicit y = f(x)

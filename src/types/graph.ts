@@ -6,7 +6,8 @@ export type EquationType =
   | 'slider'
   | 'point'
   | 'complex_vector'
-  | 'fractal';
+  | 'fractal'
+  | 'system';
 
 export type InequalityType = 'none' | '<' | '<=' | '>' | '>=';
 

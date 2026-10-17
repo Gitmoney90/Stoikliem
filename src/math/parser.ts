@@ -38,20 +38,61 @@ export type ASTNode =
   | { type: 'FunctionCall'; name: string; args: ASTNode[] }
   | { type: 'Comparison'; op: string; left: ASTNode; right: ASTNode };
 
-export function tokenize(input: string): Token[] {
-  const tokens: Token[] = [];
-  let i = 0;
-  const len = input.length;
+export function normalizeMathInput(input: string): string {
+  let text = input;
 
-  // Normalize greek letters and common symbols
-  let text = input
+  // 1. Greek letters & mathematical constants
+  text = text
     .replace(/θ|Θ/g, 'theta')
     .replace(/π|Π/g, 'pi')
     .replace(/τ/g, 'tau')
-    .replace(/φ|Φ/g, 'phi')
+    .replace(/φ|Φ/g, 'phi');
+
+  // 2. Comparison & inequality symbols
+  text = text
     .replace(/≤/g, '<=')
     .replace(/≥/g, '>=')
     .replace(/≠/g, '!=');
+
+  // 3. Multiplication, division, and plus-minus symbols
+  text = text
+    .replace(/×|·|•/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/\\pm\b/g, '±')
+    .replace(/\+-/g, '±');
+
+  // 4. Superscript numbers & signs: e.g. x² -> x^(2), x⁻¹ -> x^(-1), x³ -> x^(3)
+  const SUPERSCRIPT_MAP: Record<string, string> = {
+    '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
+    '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+    '⁺': '+', '⁻': '-', 'ⁿ': 'n',
+  };
+  text = text.replace(/([⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻ⁿ]+)/g, (_, match) => {
+    const chars = Array.from(match).map((c: any) => SUPERSCRIPT_MAP[c] || c).join('');
+    return `^(${chars})`;
+  });
+
+  // 5. Square root symbols: √x -> sqrt(x), √(x+1) -> sqrt(x+1)
+  text = text.replace(/√\s*([a-zA-Z0-9]+)/g, 'sqrt($1)');
+  text = text.replace(/√\s*\(/g, 'sqrt(');
+  text = text.replace(/∛\s*([a-zA-Z0-9]+)/g, 'cbrt($1)');
+  text = text.replace(/∛\s*\(/g, 'cbrt(');
+
+  // 6. Absolute value bars: |expr| -> abs(expr)
+  let prevText = '';
+  while (prevText !== text) {
+    prevText = text;
+    text = text.replace(/\|([^|]+)\|/g, 'abs($1)');
+  }
+
+  return text;
+}
+
+export function tokenize(input: string): Token[] {
+  const tokens: Token[] = [];
+  let i = 0;
+  const text = normalizeMathInput(input);
+  const len = text.length;
 
   while (i < len) {
     const ch = text[i];
@@ -276,23 +317,12 @@ export class Parser {
   }
 
   private multiplicative(): ASTNode {
-    let expr = this.power();
+    let expr = this.unary();
 
     while (this.match('STAR', 'SLASH', 'PERCENT')) {
       const op = this.tokens[this.current - 1].value;
-      const right = this.power();
+      const right = this.unary();
       expr = { type: 'Binary', op, left: expr, right };
-    }
-
-    return expr;
-  }
-
-  private power(): ASTNode {
-    let expr = this.unary();
-
-    if (this.match('CARET')) {
-      const right = this.power(); // Right-associative: 2^3^4 = 2^(3^4)
-      expr = { type: 'Binary', op: '^', left: expr, right };
     }
 
     return expr;
@@ -306,7 +336,18 @@ export class Parser {
       return { type: 'Unary', op: '-', argument: this.unary() };
     }
 
-    return this.postfix();
+    return this.power();
+  }
+
+  private power(): ASTNode {
+    let expr = this.postfix();
+
+    if (this.match('CARET')) {
+      const right = this.unary(); // Right-associative exponentiation: 2^3^4 = 2^(3^4)
+      expr = { type: 'Binary', op: '^', left: expr, right };
+    }
+
+    return expr;
   }
 
   private postfix(): ASTNode {

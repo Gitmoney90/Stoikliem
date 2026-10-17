@@ -16,7 +16,7 @@ export function computeImplicitContour(
   evalFn: (x: number, y: number, scope: EvalScope) => number,
   viewport: Viewport,
   scope: EvalScope,
-  cellSizePx: number = 2.5
+  cellSizePx: number = 1.8
 ): {
   segments: ContourSegment[];
   shadingPixels?: Uint8ClampedArray; // for implicit inequalities
@@ -25,9 +25,9 @@ export function computeImplicitContour(
 } {
   const { xMin, xMax, yMin, yMax, width, height } = viewport;
 
-  // Determine grid resolution based on cellSize in screen pixels
-  const cols = Math.max(16, Math.min(600, Math.ceil(width / cellSizePx)));
-  const rows = Math.max(16, Math.min(600, Math.ceil(height / cellSizePx)));
+  // Determine grid resolution based on cellSize in screen pixels (high fidelity limit)
+  const cols = Math.max(16, Math.min(800, Math.ceil(width / cellSizePx)));
+  const rows = Math.max(16, Math.min(800, Math.ceil(height / cellSizePx)));
 
   const dx = (xMax - xMin) / cols;
   const dy = (yMax - yMin) / rows;
@@ -48,7 +48,12 @@ export function computeImplicitContour(
       let val = evalFn(xVal, yVal, scope);
 
       if (isNaN(val)) {
-        val = 0;
+        val = 1e9;
+      }
+      // Precision zero handling: if exact zero, use small infinitesimal positive offset
+      // Avoid alternating signs which create spurious zero-crossings along diagonal lines
+      if (val === 0 || Math.abs(val) < 1e-14) {
+        val = 1e-14;
       }
       // Clamp extreme infinities to avoid NaN during interpolation
       if (val > 1e12) val = 1e12;
@@ -212,13 +217,38 @@ export function computeImplicitContour(
 
         // Saddle cases (opposite corners)
         case 5: { // TL and BR positive, TR and BL negative
-          const avg = (v0 + v1 + v2 + v3) / 4;
+          const xMid = xMin + (c + 0.5) * dx;
+          const yMid = yMax - (r + 0.5) * dy;
+          const vCenter = evalFn(xMid, yMid, scope);
           const ptTop = topEdge();
           const ptRight = rightEdge();
           const ptBottom = bottomEdge();
           const ptLeft = leftEdge();
+          const maxMagnitude = Math.max(Math.abs(v0), Math.abs(v1), Math.abs(v2), Math.abs(v3));
 
-          if (avg > 0) {
+          // Compute exact bilinear saddle point (Asymptotic Decider)
+          const denom = v0 - v1 + v2 - v3;
+          let uSaddle = 0.5;
+          let vSaddle = 0.5;
+          let saddleVal = vCenter;
+          if (Math.abs(denom) > 1e-12) {
+            uSaddle = Math.max(0.02, Math.min(0.98, (v0 - v3) / denom));
+            vSaddle = Math.max(0.02, Math.min(0.98, (v0 - v1) / denom));
+            saddleVal = (v0 * v2 - v1 * v3) / denom;
+          }
+
+          // If center or saddle point indicates an intersecting crossing (such as x² = y² or x*y = 0):
+          // Connect all 4 edges to the true saddle intersection center so the X-junction is continuous and unbroken!
+          if (Math.abs(saddleVal) < 0.20 * maxMagnitude || Math.abs(vCenter) < 1e-6) {
+            const pCenter = {
+              x: screenX0 + uSaddle * (screenX1 - screenX0),
+              y: screenY0 + vSaddle * (screenY1 - screenY0),
+            };
+            segments.push({ x1: ptTop.x, y1: ptTop.y, x2: pCenter.x, y2: pCenter.y });
+            segments.push({ x1: ptBottom.x, y1: ptBottom.y, x2: pCenter.x, y2: pCenter.y });
+            segments.push({ x1: ptLeft.x, y1: ptLeft.y, x2: pCenter.x, y2: pCenter.y });
+            segments.push({ x1: ptRight.x, y1: ptRight.y, x2: pCenter.x, y2: pCenter.y });
+          } else if (saddleVal > 0) {
             segments.push({ x1: ptTop.x, y1: ptTop.y, x2: ptLeft.x, y2: ptLeft.y });
             segments.push({ x1: ptBottom.x, y1: ptBottom.y, x2: ptRight.x, y2: ptRight.y });
           } else {
@@ -228,13 +258,36 @@ export function computeImplicitContour(
           break;
         }
         case 10: { // TR and BL positive, TL and BR negative
-          const avg = (v0 + v1 + v2 + v3) / 4;
+          const xMid = xMin + (c + 0.5) * dx;
+          const yMid = yMax - (r + 0.5) * dy;
+          const vCenter = evalFn(xMid, yMid, scope);
           const ptTop = topEdge();
           const ptRight = rightEdge();
           const ptBottom = bottomEdge();
           const ptLeft = leftEdge();
+          const maxMagnitude = Math.max(Math.abs(v0), Math.abs(v1), Math.abs(v2), Math.abs(v3));
 
-          if (avg > 0) {
+          // Compute exact bilinear saddle point (Asymptotic Decider)
+          const denom = v0 - v1 + v2 - v3;
+          let uSaddle = 0.5;
+          let vSaddle = 0.5;
+          let saddleVal = vCenter;
+          if (Math.abs(denom) > 1e-12) {
+            uSaddle = Math.max(0.02, Math.min(0.98, (v0 - v3) / denom));
+            vSaddle = Math.max(0.02, Math.min(0.98, (v0 - v1) / denom));
+            saddleVal = (v0 * v2 - v1 * v3) / denom;
+          }
+
+          if (Math.abs(saddleVal) < 0.20 * maxMagnitude || Math.abs(vCenter) < 1e-6) {
+            const pCenter = {
+              x: screenX0 + uSaddle * (screenX1 - screenX0),
+              y: screenY0 + vSaddle * (screenY1 - screenY0),
+            };
+            segments.push({ x1: ptTop.x, y1: ptTop.y, x2: pCenter.x, y2: pCenter.y });
+            segments.push({ x1: ptBottom.x, y1: ptBottom.y, x2: pCenter.x, y2: pCenter.y });
+            segments.push({ x1: ptLeft.x, y1: ptLeft.y, x2: pCenter.x, y2: pCenter.y });
+            segments.push({ x1: ptRight.x, y1: ptRight.y, x2: pCenter.x, y2: pCenter.y });
+          } else if (saddleVal > 0) {
             segments.push({ x1: ptTop.x, y1: ptTop.y, x2: ptRight.x, y2: ptRight.y });
             segments.push({ x1: ptBottom.x, y1: ptBottom.y, x2: ptLeft.x, y2: ptLeft.y });
           } else {
