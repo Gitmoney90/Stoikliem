@@ -4,6 +4,7 @@ import {
   GraphExpression,
   GridMode,
   ThemeId,
+  MainWorkspaceTab,
 } from './types/graph';
 import { THEMES } from './math/themes';
 import { parseEquation, ParsedEquationInfo, EvalScope } from './math/evaluator';
@@ -27,6 +28,7 @@ import { ResearchAnnalsModal } from './components/ResearchAnnalsModal';
 import { TheoryPublicationTab } from './components/TheoryPublicationTab';
 import { SubmissionArchiveTab } from './components/SubmissionArchiveTab';
 import { ProofProverModal } from './components/ProofProverModal';
+import { Hyper4DCanvas } from './components/Hyper4DCanvas';
 import { P2PEngine, P2PConnectionState } from './lib/webrtc';
 import { ChevronLeft, ChevronRight, CheckCircle2, Sparkles } from 'lucide-react';
 
@@ -81,11 +83,11 @@ export default function App() {
     p2pEngine.onStateChange = (st) => setP2PConnectionState(st);
   }, [p2pEngine]);
 
-  // Main Tab State: 'studio' | 'theorems' | 'submissions'
-  const [activeMainTab, setActiveMainTab] = useState<'studio' | 'theorems' | 'submissions'>('studio');
+  // Main Tab State: 'studio' | 'theorems' | 'submissions' | 'hyperspace'
+  const [activeMainTab, setActiveMainTab] = useState<MainWorkspaceTab>('studio');
   const [initialPostId, setInitialPostId] = useState<string | null>(null);
 
-  const handleSelectMainTab = (tab: 'studio' | 'theorems' | 'submissions') => {
+  const handleSelectMainTab = (tab: MainWorkspaceTab) => {
     setActiveMainTab(tab);
     try {
       const url = new URL(window.location.href);
@@ -116,6 +118,8 @@ export default function App() {
         setActiveMainTab('theorems');
       } else if (tabParam === 'submissions' || tabParam === 'gallery') {
         setActiveMainTab('submissions');
+      } else if (tabParam === 'hyperspace' || tabParam === '4d') {
+        setActiveMainTab('hyperspace');
       }
     } catch {}
   }, []);
@@ -752,6 +756,28 @@ export default function App() {
             handleSelectMainTab('studio');
           }}
           onShowToast={showToast}
+        />
+      ) : activeMainTab === 'hyperspace' || gridMode === 'hyper_4d' ? (
+        <Hyper4DCanvas
+          theme={theme}
+          onPlot2DSlice={(rawText) => {
+            const newId = `expr_${Date.now()}`;
+            const nextColor = theme.curvePalette[expressions.length % theme.curvePalette.length];
+            const newExpr: GraphExpression = {
+              id: newId,
+              rawText,
+              color: nextColor,
+              visible: true,
+              type: 'explicit',
+            };
+            setExpressions((prev) => [...prev, newExpr]);
+            setActiveExpressionId(newId);
+          }}
+          onShowToast={showToast}
+          onBackToStudio={() => {
+            if (gridMode === 'hyper_4d') setGridMode('cartesian');
+            handleSelectMainTab('studio');
+          }}
         />
       ) : (
         /* Main Workspace Frame (Graph Canvas + Sidebar) */

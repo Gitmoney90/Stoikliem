@@ -239,7 +239,7 @@ export function computeImplicitContour(
 
           // If center or saddle point indicates an intersecting crossing (such as x² = y² or x*y = 0):
           // Connect all 4 edges to the true saddle intersection center so the X-junction is continuous and unbroken!
-          if (Math.abs(saddleVal) < 0.20 * maxMagnitude || Math.abs(vCenter) < 1e-6) {
+          if (Math.abs(saddleVal) < 0.40 * maxMagnitude || Math.abs(vCenter) < 1e-5) {
             const pCenter = {
               x: screenX0 + uSaddle * (screenX1 - screenX0),
               y: screenY0 + vSaddle * (screenY1 - screenY0),
@@ -278,7 +278,7 @@ export function computeImplicitContour(
             saddleVal = (v0 * v2 - v1 * v3) / denom;
           }
 
-          if (Math.abs(saddleVal) < 0.20 * maxMagnitude || Math.abs(vCenter) < 1e-6) {
+          if (Math.abs(saddleVal) < 0.40 * maxMagnitude || Math.abs(vCenter) < 1e-5) {
             const pCenter = {
               x: screenX0 + uSaddle * (screenX1 - screenX0),
               y: screenY0 + vSaddle * (screenY1 - screenY0),

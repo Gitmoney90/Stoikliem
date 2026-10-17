@@ -80,7 +80,16 @@ export interface DetectedPoint {
   expressionId: string;
 }
 
-export type GridMode = 'cartesian' | 'polar' | 'trig' | 'complex' | 'complex_vector' | 'raymarch_3d';
+export type GridMode =
+  | 'cartesian'
+  | 'polar'
+  | 'trig'
+  | 'complex'
+  | 'complex_vector'
+  | 'raymarch_3d'
+  | 'hyper_4d';
+
+export type MainWorkspaceTab = 'studio' | 'theorems' | 'submissions' | 'hyperspace';
 
 export type ThemeId = 'parchment' | 'slate' | 'cartographer' | 'engraving';
 

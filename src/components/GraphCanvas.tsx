@@ -366,27 +366,35 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         // Render all sub-equations in the system
         if (parsed.subEquations) {
           parsed.subEquations.forEach((subP) => {
-            if (subP.type === 'explicit') {
-              if (subP.branchesY && subP.branchesY.length > 0) {
-                subP.branchesY.forEach((branchFn) => {
-                  const fn = (x: number) => branchFn(x, 0, 0, 0, scope);
-                  drawExplicitCurveY(ctx, fn, viewport, expr.color, lineWidth);
-                });
-              } else if (subP.evalY) {
-                const fn = (x: number) => subP.evalY!(x, 0, 0, 0, scope);
+            let hasDrawnSubBranches = false;
+            // Draw all explicit Y branches if present
+            if (subP.branchesY && subP.branchesY.length > 0) {
+              subP.branchesY.forEach((branchFn) => {
+                const fn = (x: number) => branchFn(x, 0, 0, 0, scope);
                 drawExplicitCurveY(ctx, fn, viewport, expr.color, lineWidth);
-              }
-              if (subP.branchesX && subP.branchesX.length > 0) {
-                subP.branchesX.forEach((branchFn) => {
-                  const fn = (y: number) => branchFn(0, y, 0, 0, scope);
-                  drawExplicitCurveX(ctx, fn, viewport, expr.color, lineWidth);
-                });
-              } else if (subP.evalX) {
-                const fn = (y: number) => subP.evalX!(0, y, 0, 0, scope);
+              });
+              hasDrawnSubBranches = true;
+            } else if (subP.evalY) {
+              const fn = (x: number) => subP.evalY!(x, 0, 0, 0, scope);
+              drawExplicitCurveY(ctx, fn, viewport, expr.color, lineWidth);
+              hasDrawnSubBranches = true;
+            }
+            // Draw all explicit X branches if present
+            if (subP.branchesX && subP.branchesX.length > 0) {
+              subP.branchesX.forEach((branchFn) => {
+                const fn = (y: number) => branchFn(0, y, 0, 0, scope);
                 drawExplicitCurveX(ctx, fn, viewport, expr.color, lineWidth);
-              }
-            } else if (subP.evalImplicit) {
-              const cellSize = isDragging ? 4.5 : 2.0;
+              });
+              hasDrawnSubBranches = true;
+            } else if (subP.evalX) {
+              const fn = (y: number) => subP.evalX!(0, y, 0, 0, scope);
+              drawExplicitCurveX(ctx, fn, viewport, expr.color, lineWidth);
+              hasDrawnSubBranches = true;
+            }
+
+            // Draw implicit curves if no explicit branches exist
+            if (!hasDrawnSubBranches && subP.evalImplicit) {
+              const cellSize = isDragging ? 5.0 : 2.0;
               const contour = computeImplicitContour(subP.evalImplicit, viewport, scope, cellSize);
               renderContourSegments(ctx, contour.segments, expr.color, lineWidth);
             }
@@ -408,8 +416,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       }
     });
 
-    // 6. Draw Auto-detected Roots & Extrema for the currently active function
-    if (activeExpressionId) {
+    // 6. Draw Auto-detected Roots & Extrema for the currently active function (skip during drag for 60fps)
+    if (activeExpressionId && !isDragging) {
       const activeParsed = parsedEquations.get(activeExpressionId);
       const activeExpr = expressions.find((e) => e.id === activeExpressionId);
       if (activeParsed && activeExpr) {
@@ -421,7 +429,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         }
 
         activeYFns.forEach((fn) => {
-          const roots = findRootsInInterval(fn, viewport.xMin, viewport.xMax, 300);
+          const roots = findRootsInInterval(fn, viewport.xMin, viewport.xMax, 240);
           roots.forEach((rx) => {
             const s = worldToScreen(rx, 0, viewport);
             if (s.x >= 0 && s.x <= viewport.width && s.y >= 0 && s.y <= viewport.height) {
@@ -429,7 +437,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             }
           });
 
-          const extrema = findExtremaInInterval(fn, viewport.xMin, viewport.xMax, 250);
+          const extrema = findExtremaInInterval(fn, viewport.xMin, viewport.xMax, 200);
           extrema.forEach((pt) => {
             const s = worldToScreen(pt.x, pt.y, viewport);
             if (s.x >= 0 && s.x <= viewport.width && s.y >= 0 && s.y <= viewport.height) {
@@ -494,18 +502,18 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       }
     };
 
-    // Intersections between explicit functions
-    if (explicitFns.length >= 2) {
+    // Intersections between explicit functions (skip during drag for 60fps)
+    if (explicitFns.length >= 2 && !isDragging) {
       for (let i = 0; i < explicitFns.length; i++) {
         for (let j = i + 1; j < explicitFns.length; j++) {
-          const inters = findIntersections(explicitFns[i].fn, explicitFns[j].fn, viewport.xMin, viewport.xMax, 200);
+          const inters = findIntersections(explicitFns[i].fn, explicitFns[j].fn, viewport.xMin, viewport.xMax, 180);
           inters.forEach((pt) => markIntersection(pt.x, pt.y));
         }
       }
     }
 
-    // Intersections between vertical lines and explicit functions
-    if (verticalLines.length > 0 && explicitFns.length > 0) {
+    // Intersections between vertical lines and explicit functions (skip during drag)
+    if (verticalLines.length > 0 && explicitFns.length > 0 && !isDragging) {
       verticalLines.forEach((vl) => {
         explicitFns.forEach((ef) => {
           const y = ef.fn(vl.xVal);

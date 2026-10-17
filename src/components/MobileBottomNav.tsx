@@ -19,8 +19,10 @@ import {
   Sparkles,
   ScrollText,
   ShieldCheck,
+  Box,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { MainWorkspaceTab } from '../types/graph';
 
 interface MobileBottomNavProps {
   theme: ThemeConfig;
@@ -45,8 +47,8 @@ interface MobileBottomNavProps {
   onToggleKeypad: () => void;
   onOpenResearch: () => void;
   onOpenProofProver?: () => void;
-  activeMainTab?: 'studio' | 'theorems' | 'submissions';
-  onSelectMainTab?: (tab: 'studio' | 'theorems' | 'submissions') => void;
+  activeMainTab?: MainWorkspaceTab;
+  onSelectMainTab?: (tab: MainWorkspaceTab) => void;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
@@ -291,6 +293,26 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   </div>
                 </button>
               )}
+
+              {/* 4D HyperSpace (HyperCube & Hypersphere) */}
+              <button
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  onSelectMainTab?.('hyperspace');
+                }}
+                className="min-h-[48px] p-3 rounded-xl border flex items-center gap-2.5 font-medium text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style={{
+                  backgroundColor: theme.bgCard,
+                  borderColor: theme.border,
+                  color: theme.textPrimary,
+                }}
+              >
+                <Box className="w-4 h-4 shrink-0 text-cyan-500" />
+                <div className="flex flex-col text-left">
+                  <span className="truncate">4D HyperSpace</span>
+                  <span className="text-3xs text-cyan-600 dark:text-cyan-400 font-semibold">Tesseract & S³</span>
+                </div>
+              </button>
 
               {/* Cartography & Grid Settings */}
               <button

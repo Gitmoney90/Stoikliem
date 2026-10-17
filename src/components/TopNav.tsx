@@ -20,15 +20,17 @@ import {
   ChevronDown,
   Check,
   ShieldCheck,
+  Box,
 } from 'lucide-react';
+import { MainWorkspaceTab } from '../types/graph';
 
 interface TopNavProps {
   theme: ThemeConfig;
   themeId?: ThemeId;
   gridMode?: GridMode;
   onSelectGridMode?: (mode: GridMode) => void;
-  activeMainTab?: 'studio' | 'theorems' | 'submissions';
-  onSelectMainTab?: (tab: 'studio' | 'theorems' | 'submissions') => void;
+  activeMainTab?: MainWorkspaceTab;
+  onSelectMainTab?: (tab: MainWorkspaceTab) => void;
   onToggleTheme?: () => void;
   onOpenPresets: () => void;
   onToggleAnalysis: () => void;
@@ -154,6 +156,24 @@ export const TopNav: React.FC<TopNavProps> = ({
           <span>Submissions Archive</span>
         </button>
 
+        {/* Workspace Tab 4: 4D HyperSpace (HyperCube & Hypersphere Imagination) */}
+        <button
+          onClick={() => onSelectMainTab?.('hyperspace')}
+          title="4D HyperSpace: HyperCube (Tesseract) & Hypersphere (S³) 4D Geometry Explorer"
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
+            activeMainTab === 'hyperspace'
+              ? 'font-bold bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-500/40 shadow-2xs'
+              : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
+          }`}
+          style={{ color: activeMainTab === 'hyperspace' ? undefined : theme.textPrimary }}
+        >
+          <Box className="w-3.5 h-3.5 text-cyan-500" />
+          <span>4D HyperSpace</span>
+          <span className="px-1.5 py-0.2 rounded text-3xs font-mono font-bold bg-cyan-500/20 text-cyan-700 dark:text-cyan-300">
+            4D
+          </span>
+        </button>
+
         <span className="w-px h-4 bg-stone-300 dark:bg-stone-700 mx-1" />
 
         <button
@@ -247,6 +267,8 @@ export const TopNav: React.FC<TopNavProps> = ({
                 ? 'Plane: Polar'
                 : gridMode === 'trig'
                 ? 'Plane: Trig (π)'
+                : gridMode === 'hyper_4d'
+                ? 'Plane: 4D HyperSpace'
                 : 'Plane: Cartesian'}
             </span>
             <ChevronDown className="w-3 h-3 opacity-60" />
@@ -271,6 +293,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                 { id: 'complex_vector', label: '𝔉 Complex Vector Field', sub: 'Polya flow & phase needles' },
                 { id: 'polar', label: '◎ Polar Coordinates', sub: '(r, θ) Concentric Circles' },
                 { id: 'trig', label: '∿ Trigonometric Grid', sub: 'Multiples of π' },
+                { id: 'hyper_4d', label: '⬢ 4D HyperSpace', sub: 'Tesseract & Hypersphere S³' },
               ].map((p) => {
                 const isSelected = gridMode === p.id;
                 return (

@@ -36,7 +36,11 @@ export const TableModal: React.FC<TableModalProps> = ({
   const currentExpr =
     expressions.find((e) => e.id === selectedExprId) || expressions[0];
   const parsed = currentExpr ? parsedEquations.get(currentExpr.id) : null;
-  const fn = parsed?.evalY ? (x: number) => parsed.evalY!(x, 0, 0, 0, scope) : null;
+  const fn = parsed?.evalY
+    ? (x: number) => parsed.evalY!(x, 0, 0, 0, scope)
+    : parsed?.branchesY && parsed.branchesY.length > 0
+    ? (x: number) => parsed.branchesY![0](x, 0, 0, 0, scope)
+    : null;
 
   // Generate table rows
   const rows: { x: number; y: number; d1: number }[] = [];

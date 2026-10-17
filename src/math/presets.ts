@@ -412,4 +412,19 @@ export const CLASSIC_PRESETS: CurvePreset[] = [
     viewport: { xMin: -2.2, xMax: 2.2, yMin: -1.8, yMax: 1.8 },
     gridMode: 'complex',
   },
+  {
+    id: 'quadratic_degenerate_crossing',
+    name: 'Degenerate Quadratic Conic (y² = x²)',
+    category: 'Implicit Curves',
+    historicalPeriod: 'c. 200 BC',
+    discoverer: 'Apollonius of Perga',
+    description: 'When a cutting plane passes through the apex of a double cone, the conic section degenerates into two perpendicular intersecting straight lines y² = x² (yielding y = x and y = -x). Shown alongside regular parabolas for comparison.',
+    expressions: [
+      { rawText: 'y² = x²', color: '#B45309' },
+      { rawText: 'y² = x', color: '#1E3A8A' },
+      { rawText: 'y = x²', color: '#15803D' },
+    ],
+    viewport: { xMin: -6, xMax: 6, yMin: -6, yMax: 6 },
+    gridMode: 'cartesian',
+  },
 ];

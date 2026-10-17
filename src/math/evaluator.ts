@@ -422,10 +422,35 @@ export function solveEquationBranches(
   };
 }
 
+const equationParseCache = new Map<string, ParsedEquationInfo>();
+
+export function clearEquationCache(): void {
+  equationParseCache.clear();
+}
+
 /**
  * Analyzes raw input string and determines equation type, extracting compiled functions.
+ * Uses an in-memory cache to eliminate CAS re-evaluation lag during interactive slider animations.
  */
 export function parseEquation(
+  rawInput: string,
+  angleUnit: 'rad' | 'deg' = 'rad'
+): ParsedEquationInfo {
+  const cacheKey = `${rawInput.trim()}__${angleUnit}`;
+  const cached = equationParseCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const result = parseEquationInternal(rawInput, angleUnit);
+  if (equationParseCache.size > 300) {
+    equationParseCache.clear();
+  }
+  equationParseCache.set(cacheKey, result);
+  return result;
+}
+
+function parseEquationInternal(
   rawInput: string,
   angleUnit: 'rad' | 'deg' = 'rad'
 ): ParsedEquationInfo {
