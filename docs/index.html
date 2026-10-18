@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Stoikliem Graphica — Advanced Mathematical Graphing Explorer</title>
+    <meta name="description" content="An advanced mathematical graphing explorer supporting Cartesian, parametric, polar, and GPU-accelerated implicit 3D manifold raymarching with real-time slicing, calculus tools, theorem verifier, and classic academic aesthetics." />
+    <meta property="og:title" content="Stoikliem Graphica — Advanced Mathematical Graphing Explorer" />
+    <meta property="og:description" content="An advanced mathematical graphing explorer supporting Cartesian, parametric, polar, and GPU-accelerated implicit 3D manifold raymarching with real-time slicing, calculus tools, theorem verifier, and classic academic aesthetics." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- Google Fonts for Classical Mathematical Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Eczar:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&display=swap" rel="stylesheet">
+    <!-- Browser runtime polyfill for Node.js process.env, global, and bare environments -->
+    <script>
+      (function() {
+        var g = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : this;
+        g.global = g;
+        if (!g.process) {
+          g.process = {
+            env: { NODE_ENV: 'production' },
+            browser: true,
+            version: '',
+            versions: {},
+            cwd: function() { return '/'; },
+            nextTick: function(fn) { setTimeout(fn, 0); }
+          };
+        } else {
+          if (!g.process.env) g.process.env = { NODE_ENV: 'production' };
+          if (!g.process.env.NODE_ENV) g.process.env.NODE_ENV = 'production';
+          if (!g.process.cwd) g.process.cwd = function() { return '/'; };
+          if (!g.process.nextTick) g.process.nextTick = function(fn) { setTimeout(fn, 0); };
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="./assets/index-CTMRtOgA.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BKoH3lBa.css">
+  </head>
+  <body class="bg-stone-900 text-stone-100 overflow-hidden select-none font-sans antialiased">
+    <div id="root"></div>
+  </body>
+</html>
+

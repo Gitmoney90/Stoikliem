@@ -5,8 +5,13 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: '/',
+    base: './',
     plugins: [react(), tailwindcss()],
+    define: {
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+      'process.env': JSON.stringify({ NODE_ENV: process.env.NODE_ENV || 'production' }),
+      global: 'globalThis',
+    },
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname || '.', '.'),
