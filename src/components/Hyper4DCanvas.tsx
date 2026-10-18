@@ -24,6 +24,10 @@ import {
   Play,
   Pause,
   Maximize2,
+  Minimize2,
+  Plus,
+  Minus,
+  Undo,
   Camera,
   ChevronDown,
   ChevronUp,
@@ -53,27 +57,48 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
   const animFrameRef = useRef<number | null>(null);
 
   const [state, setState] = useState<Hyper4DState>(DEFAULT_HYPER4D_STATE);
+  // High-performance animation ref (60-120fps stutter-free without React re-renders)
+  const animStateRef = useRef<Hyper4DState>({
+    ...DEFAULT_HYPER4D_STATE,
+    camZoom: 1.15,
+  });
+
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activePreset, setActivePreset] = useState<string>('classic_tesseract');
 
   // Mouse drag tracking for 3D/4D orbital rotations
   const isDraggingRef = useRef(false);
   const dragModeRef = useRef<'3d_orbit' | '4d_rot'>('3d_orbit');
   const lastMousePos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const touchStartDistRef = useRef<number | null>(null);
+  const initialZoomRef = useRef<number>(1.15);
 
   // Geometry cache
   const tesseractData = useRef(createTesseract()).current;
 
   // Render loop
   const renderFrame = useCallback(() => {
+    const container = containerRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!container || !canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const width = canvas.width;
-    const height = canvas.height;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
     if (width === 0 || height === 0) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const targetW = Math.floor(width * dpr);
+    const targetH = Math.floor(height * dpr);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const s = animStateRef.current;
 
     // Clear background
     ctx.fillStyle = theme.bgCanvas;
@@ -101,10 +126,10 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
     // ==========================================
     // Render Tesseract (HyperCube / 8-Cell)
     // ==========================================
-    if (state.shape === 'tesseract') {
-      if (state.mode === 'unfolding' && state.unfoldProgress > 0) {
+    if (s.shape === 'tesseract') {
+      if (s.mode === 'unfolding' && s.unfoldProgress > 0) {
         // Render Dalí Net 3D Unfolded Latin Cross
-        const netCubes = computeDaliNetPositions(state.unfoldProgress);
+        const netCubes = computeDaliNetPositions(s.unfoldProgress);
         netCubes.forEach((cube) => {
           // Render a wireframe 3D cube at cube.center
           const size = 0.9;
@@ -126,7 +151,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
           ];
 
           const proj = cubeVerts.map((v) =>
-            project3Dto2D(v, state.camPitch, state.camYaw, state.camZoom * 0.7, width, height)
+            project3Dto2D(v, s.camPitch, s.camYaw, s.camZoom * 0.7, width, height)
           );
 
           ctx.save();
@@ -140,7 +165,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
           });
 
           // Draw cube name tag
-          const centerProj = project3Dto2D(cube.center, state.camPitch, state.camYaw, state.camZoom * 0.7, width, height);
+          const centerProj = project3Dto2D(cube.center, s.camPitch, s.camYaw, s.camZoom * 0.7, width, height);
           ctx.font = '10px "JetBrains Mono", monospace';
           ctx.fillStyle = cube.color;
           ctx.textAlign = 'center';
@@ -149,20 +174,20 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
         });
       } else {
         // Standard 4D rotated & projected Tesseract
-        const rotated4D = tesseractData.vertices.map((v) => rotate4D(v, state));
-        const projected3D = rotated4D.map((v) => project4Dto3D(v, state.projection));
+        const rotated4D = tesseractData.vertices.map((v) => rotate4D(v, s));
+        const projected3D = rotated4D.map((v) => project4Dto3D(v, s.projection));
         const projected2D = projected3D.map((v) =>
-          project3Dto2D(v, state.camPitch, state.camYaw, state.camZoom, width, height)
+          project3Dto2D(v, s.camPitch, s.camYaw, s.camZoom, width, height)
         );
 
         // 1. Shaded 8 Hypercells
-        if (state.showFaces) {
+        if (s.showFaces) {
           tesseractData.cells.forEach((cell) => {
             // Find faces belonging to this cell
             // Approximate shaded fill using projected 2D coordinates
             ctx.save();
             ctx.fillStyle = cell.color;
-            ctx.globalAlpha = state.cellOpacity;
+            ctx.globalAlpha = s.cellOpacity;
 
             // Draw bounding polygons
             for (let fIdx = 0; fIdx < tesseractData.faces.length; fIdx += 3) {
@@ -185,7 +210,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
         }
 
         // 2. 32 4D Wireframe Edges with Depth Shading
-        if (state.showEdges) {
+        if (s.showEdges) {
           ctx.save();
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
@@ -211,7 +236,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
               : `rgba(147, 51, 234, ${alpha})`;
 
             ctx.strokeStyle = strokeColor;
-            ctx.lineWidth = state.lineWidth * (isOuter ? 1.25 : 1.0);
+            ctx.lineWidth = s.lineWidth * (isOuter ? 1.25 : 1.0);
 
             ctx.beginPath();
             ctx.moveTo(p1.sx, p1.sy);
@@ -222,11 +247,11 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
         }
 
         // 3. Hyperplane Slicing Cross-Section
-        if (state.mode === 'slice') {
-          const sliceResult = computeHyperplaneSlice(rotated4D, tesseractData.edges, state.sliceW);
+        if (s.mode === 'slice') {
+          const sliceResult = computeHyperplaneSlice(rotated4D, tesseractData.edges, s.sliceW);
           const sliceProj = sliceResult.lines.map((l) => ({
-            p1: project3Dto2D(l.p1, state.camPitch, state.camYaw, state.camZoom, width, height),
-            p2: project3Dto2D(l.p2, state.camPitch, state.camYaw, state.camZoom, width, height),
+            p1: project3Dto2D(l.p1, s.camPitch, s.camYaw, s.camZoom, width, height),
+            p2: project3Dto2D(l.p2, s.camPitch, s.camYaw, s.camZoom, width, height),
           }));
 
           // Render Slicing Solid in Neon Emerald
@@ -245,7 +270,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
 
           // Draw slice intersection nodes
           sliceResult.intersectionPoints.forEach((pt) => {
-            const p2d = project3Dto2D(pt, state.camPitch, state.camYaw, state.camZoom, width, height);
+            const p2d = project3Dto2D(pt, s.camPitch, s.camYaw, s.camZoom, width, height);
             ctx.fillStyle = '#FFFFFF';
             ctx.beginPath();
             ctx.arc(p2d.sx, p2d.sy, 4.5, 0, 2 * Math.PI);
@@ -258,7 +283,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
         }
 
         // 4. 16 Vertices
-        if (state.showVertices) {
+        if (s.showVertices) {
           ctx.save();
           projected2D.forEach((p, idx) => {
             const v4 = rotated4D[idx];
@@ -274,7 +299,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
             ctx.stroke();
 
             // Coordinate label
-            if (state.showCoordinates) {
+            if (s.showCoordinates) {
               ctx.font = '9px "JetBrains Mono", monospace';
               ctx.fillStyle = theme.textSecondary;
               ctx.textAlign = 'left';
@@ -294,20 +319,20 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
     // ==========================================
     // Render Hypersphere (4D 3-Sphere / S³)
     // ==========================================
-    if (state.shape === 'hypersphere') {
-      if (state.mode === 'hopf') {
+    if (s.shape === 'hypersphere') {
+      if (s.mode === 'hopf') {
         // Render Hopf Fibration Rings
-        const fibers = generateHopfFibration(state.hopfFibers, state.hopfLatitudes, 40);
+        const fibers = generateHopfFibration(s.hopfFibers, s.hopfLatitudes, 40);
 
         ctx.save();
         ctx.lineWidth = 1.6;
         ctx.lineCap = 'round';
 
         fibers.forEach((fiber) => {
-          const rotPoints = fiber.points.map((v) => rotate4D(v, state));
+          const rotPoints = fiber.points.map((v) => rotate4D(v, s));
           const proj3D = rotPoints.map((v) => project4Dto3D(v, 'stereographic'));
           const proj2D = proj3D.map((v) =>
-            project3Dto2D(v, state.camPitch, state.camYaw, state.camZoom * 0.85, width, height)
+            project3Dto2D(v, s.camPitch, s.camYaw, s.camZoom * 0.85, width, height)
           );
 
           ctx.strokeStyle = fiber.color;
@@ -320,10 +345,10 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
           ctx.stroke();
         });
         ctx.restore();
-      } else if (state.mode === 'slice') {
+      } else if (s.mode === 'slice') {
         // Render 3D Slicing of Hypersphere S³
         // Slicing x² + y² + z² + w² = 1 with w = sliceW yields a 3D sphere of radius r = sqrt(1 - w²)
-        const r2 = 1.0 - state.sliceW * state.sliceW;
+        const r2 = 1.0 - s.sliceW * s.sliceW;
         if (r2 > 0) {
           const r = Math.sqrt(r2);
           const rings = 14;
@@ -349,7 +374,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
                 y: ringR * Math.sin(th),
                 z: ringZ,
               };
-              const p2 = project3Dto2D(pt3, state.camPitch, state.camYaw, state.camZoom * 1.5, width, height);
+              const p2 = project3Dto2D(pt3, s.camPitch, s.camYaw, s.camZoom * 1.5, width, height);
               if (j === 0) ctx.moveTo(p2.sx, p2.sy);
               else ctx.lineTo(p2.sx, p2.sy);
             }
@@ -367,7 +392,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
               y: r * Math.sin(th),
               z: 0,
             };
-            const p2 = project3Dto2D(pt3, state.camPitch, state.camYaw, state.camZoom * 1.5, width, height);
+            const p2 = project3Dto2D(pt3, s.camPitch, s.camYaw, s.camZoom * 1.5, width, height);
             if (j === 0) ctx.moveTo(p2.sx, p2.sy);
             else ctx.lineTo(p2.sx, p2.sy);
           }
@@ -379,7 +404,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
           ctx.font = '12px "JetBrains Mono", monospace';
           ctx.fillStyle = theme.textMuted;
           ctx.textAlign = 'center';
-          ctx.fillText(`Hyperplane w = ${state.sliceW.toFixed(2)} outside S³ unit radius (|w| > 1)`, width * 0.5, height * 0.5);
+          ctx.fillText(`Hyperplane w = ${s.sliceW.toFixed(2)} outside S³ unit radius (|w| > 1)`, width * 0.5, height * 0.5);
         }
       } else {
         // Wireframe Great Circles of S³
@@ -388,10 +413,10 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
         ctx.save();
         ctx.lineWidth = 1.8;
         meridians.forEach((circle, cIdx) => {
-          const rotPoints = circle.map((v) => rotate4D(v, state));
-          const proj3D = rotPoints.map((v) => project4Dto3D(v, state.projection));
+          const rotPoints = circle.map((v) => rotate4D(v, s));
+          const proj3D = rotPoints.map((v) => project4Dto3D(v, s.projection));
           const proj2D = proj3D.map((v) =>
-            project3Dto2D(v, state.camPitch, state.camYaw, state.camZoom * 1.1, width, height)
+            project3Dto2D(v, s.camPitch, s.camYaw, s.camZoom * 1.1, width, height)
           );
 
           const hue = (cIdx / meridians.length) * 360;
@@ -415,33 +440,25 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
     ctx.fillStyle = theme.textSecondary;
     ctx.textAlign = 'left';
     ctx.fillText(
-      `4D Rotations: XW: ${(state.rotXW * (180 / Math.PI)).toFixed(0)}°  YW: ${(state.rotYW * (180 / Math.PI)).toFixed(0)}°  ZW: ${(state.rotZW * (180 / Math.PI)).toFixed(0)}°`,
+      `4D Rotations: XW: ${(s.rotXW * (180 / Math.PI)).toFixed(0)}°  YW: ${(s.rotYW * (180 / Math.PI)).toFixed(0)}°  ZW: ${(s.rotZW * (180 / Math.PI)).toFixed(0)}°  |  Zoom: ${(s.camZoom * 100).toFixed(0)}%`,
       18,
       height - 20
     );
     ctx.restore();
-  }, [state, theme, tesseractData]);
+  }, [theme, tesseractData]);
+
+  // Sync state changes to animStateRef and redraw
+  useEffect(() => {
+    animStateRef.current = {
+      ...animStateRef.current,
+      ...state,
+    };
+    renderFrame();
+  }, [state, renderFrame]);
 
   // Handle Resize
   useEffect(() => {
     const handleResize = () => {
-      const container = containerRef.current;
-      const canvas = canvasRef.current;
-      if (!container || !canvas) return;
-
-      const dpr = window.devicePixelRatio || 1;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.scale(dpr, dpr);
-      }
       renderFrame();
     };
 
@@ -450,7 +467,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [renderFrame]);
 
-  // Continuous Animation Loop (60fps Auto-Tumble)
+  // Continuous Animation Loop (Zero-React-Re-renders for 60-120fps performance)
   useEffect(() => {
     let lastTime = performance.now();
 
@@ -458,34 +475,24 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
       const dt = (time - lastTime) / 1000;
       lastTime = time;
 
-      if (state.isAutoRotating && !isDraggingRef.current) {
-        const speed = state.autoTumbleSpeed * dt;
+      const s = animStateRef.current;
+      if (s.isAutoRotating && !isDraggingRef.current) {
+        const speed = s.autoTumbleSpeed * dt;
 
-        setState((prev) => {
-          if (prev.tumbleMode === 'clifford') {
-            // Clifford Double Rotation: simultaneous rotation in XW and YZ (impossible in 3D!)
-            return {
-              ...prev,
-              rotXW: (prev.rotXW + speed * 0.9) % (2 * Math.PI),
-              rotYZ: (prev.rotYZ + speed * 0.9) % (2 * Math.PI),
-              rotYW: (prev.rotYW + speed * 0.4) % (2 * Math.PI),
-            };
-          } else if (prev.tumbleMode === 'simple') {
-            return {
-              ...prev,
-              rotXW: (prev.rotXW + speed) % (2 * Math.PI),
-            };
-          } else {
-            // Complex multi-plane tumble
-            return {
-              ...prev,
-              rotXW: (prev.rotXW + speed * 0.75) % (2 * Math.PI),
-              rotYW: (prev.rotYW + speed * 0.5) % (2 * Math.PI),
-              rotZW: (prev.rotZW + speed * 0.3) % (2 * Math.PI),
-              camYaw: prev.camYaw + speed * 0.2,
-            };
-          }
-        });
+        if (s.tumbleMode === 'clifford') {
+          // Clifford Double Rotation: simultaneous rotation in XW and YZ (impossible in 3D!)
+          s.rotXW = (s.rotXW + speed * 0.9) % (2 * Math.PI);
+          s.rotYZ = (s.rotYZ + speed * 0.9) % (2 * Math.PI);
+          s.rotYW = (s.rotYW + speed * 0.4) % (2 * Math.PI);
+        } else if (s.tumbleMode === 'simple') {
+          s.rotXW = (s.rotXW + speed) % (2 * Math.PI);
+        } else {
+          // Complex multi-plane tumble
+          s.rotXW = (s.rotXW + speed * 0.75) % (2 * Math.PI);
+          s.rotYW = (s.rotYW + speed * 0.5) % (2 * Math.PI);
+          s.rotZW = (s.rotZW + speed * 0.3) % (2 * Math.PI);
+          s.camYaw = (s.camYaw + speed * 0.2) % (2 * Math.PI);
+        }
       }
 
       renderFrame();
@@ -496,7 +503,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [state.isAutoRotating, state.autoTumbleSpeed, state.tumbleMode, renderFrame]);
+  }, [renderFrame]);
 
   // Pointer Interaction Handlers
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -515,19 +522,17 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
 
     if (dragModeRef.current === '4d_rot') {
       // 4D Rotation in X-W and Y-W
-      setState((prev) => ({
-        ...prev,
-        rotXW: prev.rotXW + dx * 0.012,
-        rotYW: prev.rotYW - dy * 0.012,
-      }));
+      animStateRef.current.rotXW = (animStateRef.current.rotXW + dx * 0.012) % (2 * Math.PI);
+      animStateRef.current.rotYW = (animStateRef.current.rotYW - dy * 0.012) % (2 * Math.PI);
     } else {
       // 3D Orbit Pitch & Yaw
-      setState((prev) => ({
-        ...prev,
-        camYaw: prev.camYaw + dx * 0.008,
-        camPitch: Math.max(-Math.PI * 0.48, Math.min(Math.PI * 0.48, prev.camPitch - dy * 0.008)),
-      }));
+      animStateRef.current.camYaw = (animStateRef.current.camYaw + dx * 0.008) % (2 * Math.PI);
+      animStateRef.current.camPitch = Math.max(
+        -Math.PI * 0.48,
+        Math.min(Math.PI * 0.48, animStateRef.current.camPitch - dy * 0.008)
+      );
     }
+    renderFrame();
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -539,11 +544,62 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    const zoomDelta = e.deltaY * -0.0015;
-    setState((prev) => ({
-      ...prev,
-      camZoom: Math.max(0.35, Math.min(3.5, prev.camZoom + zoomDelta)),
-    }));
+    const factor = e.deltaY < 0 ? 1.08 : 0.92;
+    animStateRef.current.camZoom = Math.max(0.35, Math.min(5.0, animStateRef.current.camZoom * factor));
+    renderFrame();
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartDistRef.current = dist;
+      initialZoomRef.current = animStateRef.current.camZoom;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const scale = dist / touchStartDistRef.current;
+      animStateRef.current.camZoom = Math.max(0.35, Math.min(5.0, initialZoomRef.current * scale));
+      renderFrame();
+    }
+  };
+
+  // Zoom and Camera Controls
+  const handleZoomIn = () => {
+    animStateRef.current.camZoom = Math.min(5.0, animStateRef.current.camZoom * 1.25);
+    renderFrame();
+    onShowToast?.(`4D Graph Zoom: ${(animStateRef.current.camZoom * 100).toFixed(0)}%`);
+  };
+
+  const handleZoomOut = () => {
+    animStateRef.current.camZoom = Math.max(0.35, animStateRef.current.camZoom * 0.8);
+    renderFrame();
+    onShowToast?.(`4D Graph Zoom: ${(animStateRef.current.camZoom * 100).toFixed(0)}%`);
+  };
+
+  const handleResetCamera = () => {
+    animStateRef.current = {
+      ...animStateRef.current,
+      rotXW: 0.45,
+      rotYW: 0.35,
+      rotZW: 0.0,
+      rotXY: 0.0,
+      rotXZ: 0.0,
+      rotYZ: 0.0,
+      camPitch: 0.4,
+      camYaw: 0.6,
+      camZoom: 1.15,
+    };
+    renderFrame();
+    onShowToast?.('Auto-fit 4D HyperSpace & Centered View');
   };
 
   // Snapshot / PNG Export
@@ -632,7 +688,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden relative select-none">
+    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden relative select-none pb-[58px] md:pb-0">
       {/* Main 4D Canvas Viewport */}
       <div
         ref={containerRef}
@@ -641,13 +697,15 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
       >
         <canvas ref={canvasRef} className="w-full h-full block" />
 
         {/* Top Floating Control Pill */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none z-10">
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none z-10 flex-wrap">
           {/* Shape Selector & Mode Bar */}
-          <div className="pointer-events-auto flex items-center gap-1.5 p-1 rounded-xl border shadow-xl backdrop-blur-md"
+          <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-xl border shadow-xl backdrop-blur-md"
             style={{
               backgroundColor: theme.bgCard + 'ee',
               borderColor: theme.border,
@@ -655,31 +713,33 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
           >
             <button
               onClick={() => setState((prev) => ({ ...prev, shape: 'tesseract', mode: 'wireframe' }))}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 state.shape === 'tesseract'
                   ? 'bg-amber-500/20 text-amber-700 dark:text-amber-400 font-bold border border-amber-500/40'
                   : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-70'
               }`}
             >
               <Box className="w-3.5 h-3.5" />
-              <span>HyperCube (Tesseract)</span>
+              <span className="hidden sm:inline">HyperCube (Tesseract)</span>
+              <span className="sm:hidden">HyperCube</span>
             </button>
 
             <button
               onClick={() => setState((prev) => ({ ...prev, shape: 'hypersphere', mode: 'hopf' }))}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 state.shape === 'hypersphere'
                   ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 font-bold border border-cyan-500/40'
                   : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-70'
               }`}
             >
               <Circle className="w-3.5 h-3.5" />
-              <span>Hypersphere (S³)</span>
+              <span className="hidden sm:inline">Hypersphere (S³)</span>
+              <span className="sm:hidden">Hypersphere</span>
             </button>
           </div>
 
-          {/* Quick Actions (Guide, Snapshot, Play/Pause) */}
-          <div className="pointer-events-auto flex items-center gap-1.5 p-1 rounded-xl border shadow-xl backdrop-blur-md"
+          {/* Quick Actions (Guide, Snapshot, Play/Pause, Sidebar Toggle, 2D Studio) */}
+          <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-xl border shadow-xl backdrop-blur-md"
             style={{
               backgroundColor: theme.bgCard + 'ee',
               borderColor: theme.border,
@@ -706,27 +766,52 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
             <button
               onClick={() => setIsGuideOpen(!isGuideOpen)}
               title="Open 4D Imagination & Pedagogical Guide"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+              className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
                 isGuideOpen
                   ? 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border-indigo-500/40'
                   : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
               }`}
             >
               <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
-              <span>4D Imagination Guide</span>
+              <span className="hidden sm:inline">4D Guide</span>
             </button>
+
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              title={isSidebarOpen ? 'Hide Parameters Panel (Fullscreen View)' : 'Show Parameters Panel'}
+              className={`p-2 rounded-lg transition-colors text-xs flex items-center gap-1 ${
+                isSidebarOpen ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 font-bold' : 'hover:bg-black/5 dark:hover:bg-white/5'
+              }`}
+              style={{ color: isSidebarOpen ? undefined : theme.textPrimary }}
+            >
+              <Sliders className="w-4 h-4" />
+              <span className="hidden md:inline text-3xs font-semibold">
+                {isSidebarOpen ? 'Collapse' : 'Controls'}
+              </span>
+            </button>
+
+            {onBackToStudio && (
+              <button
+                onClick={onBackToStudio}
+                title="Return to 2D Graph Studio"
+                className="px-2.5 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-xs font-semibold border border-transparent hover:border-black/10 dark:hover:border-white/10"
+                style={{ color: theme.textSecondary }}
+              >
+                2D Studio
+              </button>
+            )}
           </div>
         </div>
 
         {/* Bottom Floating Interactive Presets Carousel */}
-        <div className="absolute bottom-10 left-3 right-3 flex items-center justify-center gap-1.5 overflow-x-auto pointer-events-none z-10 pb-1">
-          <div className="pointer-events-auto flex items-center gap-1.5 p-1.5 rounded-xl border shadow-2xl backdrop-blur-md"
+        <div className="absolute bottom-16 md:bottom-9 left-3 right-3 flex items-center justify-center gap-1.5 overflow-x-auto pointer-events-none z-10 pb-1">
+          <div className="pointer-events-auto flex items-center gap-1.5 p-1.5 rounded-xl border shadow-2xl backdrop-blur-md max-w-full overflow-x-auto no-scrollbar"
             style={{
               backgroundColor: theme.bgCard + 'fa',
               borderColor: theme.border,
             }}
           >
-            <span className="text-3xs font-mono font-bold uppercase tracking-wider px-2 opacity-60" style={{ color: theme.textSecondary }}>
+            <span className="text-3xs font-mono font-bold uppercase tracking-wider px-2 opacity-60 shrink-0" style={{ color: theme.textSecondary }}>
               Presets:
             </span>
 
@@ -741,7 +826,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
               <button
                 key={preset.id}
                 onClick={() => applyPreset(preset.id)}
-                className={`px-2.5 py-1 text-2xs font-medium rounded-lg transition-all whitespace-nowrap ${
+                className={`px-2.5 py-1 text-2xs font-medium rounded-lg transition-all whitespace-nowrap shrink-0 ${
                   activePreset === preset.id
                     ? 'font-bold bg-amber-500 text-stone-900 shadow-xs'
                     : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
@@ -754,23 +839,71 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
           </div>
         </div>
 
+        {/* Floating Quick Camera Controls Dock (Zoom In, Zoom Out, Auto-Fit, Theater Toggle) */}
+        <div
+          className="absolute right-4 bottom-20 md:bottom-6 flex flex-col items-center gap-1.5 z-20 pointer-events-auto shadow-2xl rounded-2xl p-1.5 border backdrop-blur-md"
+          style={{
+            backgroundColor: theme.bgCard + 'ee',
+            borderColor: theme.border,
+          }}
+        >
+          <button
+            onClick={handleZoomIn}
+            title="Enlarge 4D Graph (Zoom In)"
+            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all text-xs font-bold"
+            style={{ color: theme.textPrimary }}
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={handleZoomOut}
+            title="Shrink 4D Graph (Zoom Out)"
+            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all text-xs font-bold"
+            style={{ color: theme.textPrimary }}
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+
+          <div className="w-5 h-px bg-stone-300 dark:bg-stone-700 my-0.5" />
+
+          <button
+            onClick={handleResetCamera}
+            title="Auto-Fit & Center 4D Graph"
+            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all text-xs"
+            style={{ color: theme.accent }}
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            title={isSidebarOpen ? 'Expand to Fullscreen Theater' : 'Show Controls Sidebar'}
+            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all text-xs"
+            style={{ color: isSidebarOpen ? theme.textSecondary : theme.accent }}
+          >
+            {isSidebarOpen ? <Minimize2 className="w-4 h-4" /> : <Sliders className="w-4 h-4" />}
+          </button>
+        </div>
+
         {/* Floating Hint Pill */}
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none text-3xs font-mono opacity-50 px-3 py-0.5 rounded-full"
+        <div className="absolute bottom-14 md:bottom-2 left-1/2 -translate-x-1/2 pointer-events-none text-3xs font-mono opacity-50 px-3 py-0.5 rounded-full"
           style={{ color: theme.textSecondary, backgroundColor: theme.bgCard + '88' }}
         >
-          Drag: 3D Orbit • Shift+Drag: 4D Rotation • Scroll: Zoom
+          Drag: 3D Orbit • Shift+Drag: 4D Rotation • Pinch/Scroll: Zoom
         </div>
       </div>
 
       {/* Right Control & Parameter Sidebar */}
-      <div
-        className="w-full md:w-80 lg:w-96 border-l flex flex-col shrink-0 overflow-y-auto max-h-[45vh] md:max-h-full"
-        style={{
-          backgroundColor: theme.bgSidebar,
-          borderColor: theme.border,
-          color: theme.textPrimary,
-        }}
-      >
+      {isSidebarOpen && (
+        <div
+          className="w-full md:w-80 lg:w-96 border-l flex flex-col shrink-0 overflow-y-auto max-h-[45vh] md:max-h-full transition-all"
+          style={{
+            backgroundColor: theme.bgSidebar,
+            borderColor: theme.border,
+            color: theme.textPrimary,
+          }}
+        >
         <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: theme.border }}>
           <div className="flex items-center gap-2">
             <Rotate3d className="w-5 h-5 text-amber-500" />
@@ -779,10 +912,11 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
             </h3>
           </div>
           <button
-            onClick={() => setState(DEFAULT_HYPER4D_STATE)}
-            className="text-2xs font-mono underline opacity-70 hover:opacity-100"
+            onClick={handleResetCamera}
+            className="text-2xs font-mono underline opacity-70 hover:opacity-100 flex items-center gap-1"
           >
-            Reset
+            <Undo className="w-3 h-3" />
+            <span>Reset View</span>
           </button>
         </div>
 
@@ -1010,6 +1144,7 @@ export const Hyper4DCanvas: React.FC<Hyper4DCanvasProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* 4D Pedagogical / Educational Imagination Guide Drawer */}
       {isGuideOpen && (

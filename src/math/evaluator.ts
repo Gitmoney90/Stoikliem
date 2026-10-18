@@ -179,7 +179,8 @@ export function compile3DExpression(
   exprStr: string,
   angleUnit: 'rad' | 'deg' = 'rad'
 ): Compiled3DFn {
-  const parser = new Parser(exprStr);
+  const normalized = normalizeMathInput(exprStr);
+  const parser = new Parser(normalized);
   const ast = parser.parse();
   const code = astToJS(ast, angleUnit);
 

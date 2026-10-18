@@ -449,7 +449,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         }}
         aria-label="Mobile Bottom Navigation"
       >
-        {/* Tab 1: Studio Canvas / Equations */}
+        {/* Tab 1: 2D Studio Canvas */}
         <button
           onClick={() => {
             if (activeMainTab !== 'studio' && onSelectMainTab) {
@@ -464,7 +464,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           style={{
             color: activeMainTab === 'studio' ? theme.accent : theme.textSecondary,
           }}
-          aria-label="Studio Canvas"
+          aria-label="2D Graph Studio"
         >
           <div className="relative flex items-center justify-center">
             <span className="font-serif italic font-bold text-sm">f(x)</span>
@@ -477,10 +477,40 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               </span>
             )}
           </div>
-          <span className="text-3xs tracking-tight">Studio</span>
+          <span className="text-3xs tracking-tight">2D Studio</span>
         </button>
 
-        {/* Tab 2: Theorems & Vlog Annals Tab */}
+        {/* Tab 2: 3D Surface & Contour Explorer */}
+        <button
+          onClick={() => onSelectMainTab?.('surfaces_3d')}
+          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95 ${
+            activeMainTab === 'surfaces_3d' ? 'font-bold' : ''
+          }`}
+          style={{
+            color: activeMainTab === 'surfaces_3d' ? '#10B981' : theme.textSecondary,
+          }}
+          aria-label="3D Surface and Contour Explorer"
+        >
+          <Rotate3d className={`w-4 h-4 ${activeMainTab === 'surfaces_3d' ? 'text-emerald-500' : 'opacity-70'}`} />
+          <span className="text-3xs tracking-tight">3D Surface</span>
+        </button>
+
+        {/* Tab 3: 4D HyperSpace (HyperCube & Hypersphere) */}
+        <button
+          onClick={() => onSelectMainTab?.('hyperspace')}
+          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95 ${
+            activeMainTab === 'hyperspace' ? 'font-bold' : ''
+          }`}
+          style={{
+            color: activeMainTab === 'hyperspace' ? '#06B6D4' : theme.textSecondary,
+          }}
+          aria-label="4D HyperSpace Explorer"
+        >
+          <Box className={`w-4 h-4 ${activeMainTab === 'hyperspace' ? 'text-cyan-500' : 'opacity-70'}`} />
+          <span className="text-3xs tracking-tight">4D Space</span>
+        </button>
+
+        {/* Tab 4: Theorems & Vlog Annals Tab */}
         <button
           onClick={() => (onSelectMainTab ? onSelectMainTab('theorems') : onOpenResearch())}
           className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95 ${
@@ -495,35 +525,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <span className="text-3xs tracking-tight">Theorems</span>
         </button>
 
-        {/* Tab 3: Community Submissions Tab */}
-        <button
-          onClick={() => (onSelectMainTab ? onSelectMainTab('submissions') : onOpenGallery())}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95 ${
-            activeMainTab === 'submissions' ? 'font-bold' : ''
-          }`}
-          style={{
-            color: activeMainTab === 'submissions' ? '#F59E0B' : theme.textSecondary,
-          }}
-          aria-label="Submissions Archive"
-        >
-          <Globe className="w-4 h-4 text-amber-500" />
-          <span className="text-3xs tracking-tight">Submissions</span>
-        </button>
-
-        {/* Tab 4: Symbolic CAS & Calculus Studio Drawer */}
-        <button
-          onClick={onToggleAnalysis}
-          className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95"
-          style={{
-            color: isAnalysisOpen ? theme.accent : theme.textSecondary,
-          }}
-          aria-label="Symbolic CAS & Calculus Studio"
-        >
-          <Sparkles className="w-4 h-4" />
-          <span className="text-3xs tracking-tight">CAS/Calc</span>
-        </button>
-
-        {/* Tab 5: Mobile Actions Menu (Presets, Theory, Cartography, P2P) */}
+        {/* Tab 5: Mobile Actions Menu (Submissions, CAS, Presets, Proof, P2P) */}
         <button
           onClick={() => setIsMenuOpen(true)}
           className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors min-h-[52px] active:scale-95"

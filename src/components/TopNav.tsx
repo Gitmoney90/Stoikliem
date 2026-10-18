@@ -109,92 +109,109 @@ export const TopNav: React.FC<TopNavProps> = ({
       </div>
 
       {/* Zone 2: Desktop Workspace Tabs and Auxiliary Tools */}
-      <nav className="hidden md:flex items-center gap-2 lg:gap-3 text-xs font-medium">
-        {/* Workspace Tab 1: Graph Studio */}
-        <button
-          onClick={() => onSelectMainTab?.('studio')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
-            activeMainTab === 'studio'
-              ? 'font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40 shadow-2xs'
-              : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
-          }`}
-          style={{ color: activeMainTab === 'studio' ? undefined : theme.textPrimary }}
+      <nav className="hidden md:flex items-center gap-2 lg:gap-2.5 text-xs font-medium">
+        {/* Dimensional Graph Workspaces (2D Studio | 3D Surfaces | 4D HyperSpace) */}
+        <div
+          className="flex items-center p-0.5 rounded-xl border shadow-2xs"
+          style={{
+            backgroundColor: theme.bgCard + 'bb',
+            borderColor: theme.border,
+          }}
         >
-          <span className="font-serif italic font-bold">f(x)</span>
-          <span>Studio Canvas</span>
-        </button>
+          {/* Workspace Tab 1: 2D Studio */}
+          <button
+            onClick={() => onSelectMainTab?.('studio')}
+            title="2D Analytical Graph Studio (Cartesian, Polar, Parametric, Implicit & CAS)"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
+              activeMainTab === 'studio'
+                ? 'font-bold bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/40 shadow-xs'
+                : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-75'
+            }`}
+            style={{ color: activeMainTab === 'studio' ? undefined : theme.textPrimary }}
+          >
+            <span className="font-serif italic font-bold">f(x)</span>
+            <span>2D Studio</span>
+          </button>
 
-        {/* Workspace Tab 2: 3D Surface & Contour Explorer */}
-        <button
-          onClick={() => onSelectMainTab?.('surfaces_3d')}
-          title="Explicit 3D Surface Renderer (z = f(x, y)) & Implicit 3D Contour Level Sets"
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
-            activeMainTab === 'surfaces_3d'
-              ? 'font-bold bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/40 shadow-2xs'
-              : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
-          }`}
-          style={{ color: activeMainTab === 'surfaces_3d' ? undefined : theme.textPrimary }}
+          {/* Workspace Tab 2: 3D Surface & Contour Explorer */}
+          <button
+            onClick={() => onSelectMainTab?.('surfaces_3d')}
+            title="Explicit 3D Surfaces (z = f(x, y)), Kuhn Marching Tetrahedra Level Sets (F(x, y, z) = 0), and Lighting Shaders"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
+              activeMainTab === 'surfaces_3d'
+                ? 'font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40 shadow-xs'
+                : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-75'
+            }`}
+            style={{ color: activeMainTab === 'surfaces_3d' ? undefined : theme.textPrimary }}
+          >
+            <Rotate3d className="w-3.5 h-3.5 text-emerald-500" />
+            <span>3D Surfaces</span>
+            <span className="px-1.5 py-0.2 rounded text-3xs font-mono font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+              3D
+            </span>
+          </button>
+
+          {/* Workspace Tab 3: 4D HyperSpace */}
+          <button
+            onClick={() => onSelectMainTab?.('hyperspace')}
+            title="4D HyperSpace: HyperCube (Tesseract) & Hypersphere (S³) 4D Rotations and Slicing"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
+              activeMainTab === 'hyperspace'
+                ? 'font-bold bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border-cyan-500/40 shadow-xs'
+                : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-75'
+            }`}
+            style={{ color: activeMainTab === 'hyperspace' ? undefined : theme.textPrimary }}
+          >
+            <Box className="w-3.5 h-3.5 text-cyan-500" />
+            <span>4D HyperSpace</span>
+            <span className="px-1.5 py-0.2 rounded text-3xs font-mono font-bold bg-cyan-500/20 text-cyan-700 dark:text-cyan-300">
+              4D
+            </span>
+          </button>
+        </div>
+
+        {/* Research & Publications Segment */}
+        <div
+          className="flex items-center p-0.5 rounded-xl border shadow-2xs"
+          style={{
+            backgroundColor: theme.bgCard + '88',
+            borderColor: theme.border,
+          }}
         >
-          <Rotate3d className="w-3.5 h-3.5 text-amber-500" />
-          <span>3D Surface & Contour</span>
-          <span className="px-1.5 py-0.2 rounded text-3xs font-mono font-bold bg-amber-500/25 text-amber-800 dark:text-amber-300">
-            3D
-          </span>
-        </button>
+          {/* Workspace Tab 4: Theorems & Vlog Publications */}
+          <button
+            onClick={() => (onSelectMainTab ? onSelectMainTab('theorems') : onOpenResearch())}
+            title="Full Vlog Theorem Publications, Comments, Likes & Direct Peer P2P"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
+              activeMainTab === 'theorems'
+                ? 'font-bold bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border-indigo-500/40 shadow-xs'
+                : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-75'
+            }`}
+            style={{ color: activeMainTab === 'theorems' ? undefined : theme.textPrimary }}
+          >
+            <ScrollText className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Theorems & Annals</span>
+          </button>
 
-        {/* Workspace Tab 2: Theorems & Vlog Publications */}
-        <button
-          onClick={() => (onSelectMainTab ? onSelectMainTab('theorems') : onOpenResearch())}
-          title="Full Vlog Theorem Publications, Comments, Likes & Direct Peer P2P"
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
-            activeMainTab === 'theorems'
-              ? 'font-bold bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-500/40 shadow-2xs'
-              : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
-          }`}
-          style={{ color: activeMainTab === 'theorems' ? undefined : theme.textPrimary }}
-        >
-          <ScrollText className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Theorems & Vlogs</span>
-          <span className="px-1.5 py-0.2 rounded text-3xs font-mono font-bold bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
-            Annals
-          </span>
-        </button>
+          {/* Workspace Tab 5: Submissions Archive */}
+          <button
+            onClick={() => (onSelectMainTab ? onSelectMainTab('submissions') : onOpenGallery())}
+            title="Community Graph Submissions & Personal Locus Archive"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
+              activeMainTab === 'submissions'
+                ? 'font-bold bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/40 shadow-xs'
+                : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-75'
+            }`}
+            style={{ color: activeMainTab === 'submissions' ? undefined : theme.textPrimary }}
+          >
+            <Globe className="w-3.5 h-3.5 text-amber-500" />
+            <span>Submissions</span>
+          </button>
+        </div>
 
-        {/* Workspace Tab 3: Submissions Archive */}
-        <button
-          onClick={() => (onSelectMainTab ? onSelectMainTab('submissions') : onOpenGallery())}
-          title="Community Graph Submissions & Personal Locus Archive"
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
-            activeMainTab === 'submissions'
-              ? 'font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40 shadow-2xs'
-              : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
-          }`}
-          style={{ color: activeMainTab === 'submissions' ? undefined : theme.textPrimary }}
-        >
-          <Globe className="w-3.5 h-3.5 text-amber-500" />
-          <span>Submissions Archive</span>
-        </button>
+        <span className="w-px h-4 bg-stone-300 dark:bg-stone-700 mx-0.5" />
 
-        {/* Workspace Tab 4: 4D HyperSpace (HyperCube & Hypersphere Imagination) */}
-        <button
-          onClick={() => onSelectMainTab?.('hyperspace')}
-          title="4D HyperSpace: HyperCube (Tesseract) & Hypersphere (S³) 4D Geometry Explorer"
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
-            activeMainTab === 'hyperspace'
-              ? 'font-bold bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-500/40 shadow-2xs'
-              : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
-          }`}
-          style={{ color: activeMainTab === 'hyperspace' ? undefined : theme.textPrimary }}
-        >
-          <Box className="w-3.5 h-3.5 text-cyan-500" />
-          <span>4D HyperSpace</span>
-          <span className="px-1.5 py-0.2 rounded text-3xs font-mono font-bold bg-cyan-500/20 text-cyan-700 dark:text-cyan-300">
-            4D
-          </span>
-        </button>
-
-        <span className="w-px h-4 bg-stone-300 dark:bg-stone-700 mx-1" />
-
+        {/* Auxiliary Math Studio Tools */}
         <button
           onClick={onOpenPresets}
           className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1 opacity-75 hover:opacity-100"
@@ -213,30 +230,27 @@ export const TopNav: React.FC<TopNavProps> = ({
           style={{ color: isAnalysisOpen ? theme.accent : theme.textSecondary }}
         >
           <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-          <span>CAS & Calculus</span>
+          <span>CAS & Calc</span>
         </button>
 
         <button
           onClick={onOpenGraphTheory}
-          className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1 opacity-75 hover:opacity-100"
+          className="hidden xl:flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1 opacity-75 hover:opacity-100"
           style={{ color: theme.textSecondary }}
         >
           <Network className="w-3.5 h-3.5" />
-          <span>Graph Theory</span>
+          <span>Theory</span>
         </button>
 
         {onOpenProofProver && (
           <button
             onClick={onOpenProofProver}
             title="Local Zero-API Proof Prover & Automated Theorem Verifier (Tableaux & Induction)"
-            className="flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1 opacity-80 hover:opacity-100"
+            className="hidden lg:flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 hover:underline py-1 opacity-80 hover:opacity-100"
             style={{ color: theme.textSecondary }}
           >
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>Proof Prover</span>
-            <span className="px-1 py-0.2 rounded text-3xs font-mono font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-              Zero-API
-            </span>
           </button>
         )}
 
@@ -247,7 +261,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           style={{ color: isP2PConnected ? '#16A34A' : theme.textSecondary }}
         >
           <Radio className={`w-3.5 h-3.5 ${isP2PConnected ? 'animate-pulse text-emerald-600' : ''}`} />
-          <span>P2P Room</span>
+          <span>P2P</span>
           {isP2PConnected && (
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block ml-0.5" />
           )}

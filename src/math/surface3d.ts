@@ -220,27 +220,30 @@ export function generateExplicitSurfaceMesh(
     maxZ = minZ + 1;
   }
 
-  // 2. Normal Vectors via Central Differences with caching
+  // 2. Normal Vectors via Central Differences on evaluated grid (Ultra-Fast)
   const normalGrid: Vec3[][] = [];
-  const h = 1e-3;
 
   for (let i = 0; i <= nx; i++) {
     normalGrid[i] = [];
-    const x = xMin + i * dx;
+    const iL = Math.max(0, i - 1);
+    const iR = Math.min(nx, i + 1);
+
     for (let j = 0; j <= ny; j++) {
-      const y = yMin + j * dy;
       const zVal = gridZ[i][j];
       if (isNaN(zVal)) {
         normalGrid[i][j] = { x: 0, y: 0, z: 1 };
         continue;
       }
-      const zL = fn(x - h, y);
-      const zR = fn(x + h, y);
-      const zB = fn(x, y - h);
-      const zT = fn(x, y + h);
+      const jB = Math.max(0, j - 1);
+      const jT = Math.min(ny, j + 1);
 
-      const dzdx = (!isNaN(zL) && !isNaN(zR) && isFinite(zL) && isFinite(zR)) ? (zR - zL) / (2 * h) : 0;
-      const dzdy = (!isNaN(zB) && !isNaN(zT) && isFinite(zB) && isFinite(zT)) ? (zT - zB) / (2 * h) : 0;
+      const zL = gridZ[iL][j];
+      const zR = gridZ[iR][j];
+      const zB = gridZ[i][jB];
+      const zT = gridZ[i][jT];
+
+      const dzdx = (iR !== iL && !isNaN(zL) && !isNaN(zR)) ? (zR - zL) / ((iR - iL) * dx) : 0;
+      const dzdy = (jT !== jB && !isNaN(zB) && !isNaN(zT)) ? (zT - zB) / ((jT - jB) * dy) : 0;
 
       const len = Math.hypot(-dzdx, -dzdy, 1) || 1;
       normalGrid[i][j] = {
@@ -534,7 +537,8 @@ export function projectWorldToScreen3D(
   zoom: number,
   pan: { x: number; y: number },
   width: number,
-  height: number
+  height: number,
+  domainRadius: number = 2.5
 ): { sx: number; sy: number; depth: number } {
   // Yaw around Z axis
   const cy = Math.cos(yaw);
@@ -548,10 +552,12 @@ export function projectWorldToScreen3D(
   const y2 = y1 * cp - v.z * sinP;
   const z2 = y1 * sinP + v.z * cp;
 
-  // 3D Perspective camera distance
-  const dCamera = 9.0;
-  const fov = Math.min(width, height) * 0.55 * zoom;
-  const denom = Math.max(0.2, dCamera - z2);
+  // 3D Perspective camera distance & auto-framing
+  const dCamera = 8.2;
+  const normRadius = Math.max(0.5, domainRadius);
+  // Viewport scale: graph comfortably fills ~75-80% of min(width, height)
+  const fov = (Math.min(width, height) * 0.42 * dCamera / normRadius) * zoom;
+  const denom = Math.max(0.25, dCamera - (z2 / normRadius) * 2.5);
 
   const sx = width * 0.5 + pan.x + (x1 / denom) * fov;
   const sy = height * 0.5 + pan.y - (y2 / denom) * fov;

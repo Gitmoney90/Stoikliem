@@ -235,10 +235,10 @@ export function project3Dto2D(
   const y2 = v.y * cosPitch - z1 * sinPitch;
   const z2 = v.y * sinPitch + z1 * cosPitch;
 
-  // 3D Camera distance
-  const d3 = 5.2;
-  const fov = Math.min(width, height) * 0.42 * zoom;
-  const denom = Math.max(0.2, d3 - z2);
+  // 3D Camera distance & Large Viewport FOV (~3.2x larger so 4D structures fill ~75-80% of viewport)
+  const d3 = 4.4;
+  const fov = Math.min(width, height) * 1.35 * zoom;
+  const denom = Math.max(0.3, d3 - z2);
 
   const sx = width * 0.5 + (x1 / denom) * fov;
   const sy = height * 0.5 - (y2 / denom) * fov;

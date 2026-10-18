@@ -31,6 +31,8 @@ import {
   Eye,
   Maximize2,
   Minimize2,
+  Plus,
+  Minus,
   Grid3X3,
   Flame,
   HelpCircle,
@@ -88,18 +90,21 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
   const [showSlicePlane, setShowSlicePlane] = useState<boolean>(false);
   const [sliceZ, setSliceZ] = useState<number>(0.0);
 
-  // 3D Orbital Camera
-  const [pitch, setPitch] = useState<number>(0.55);
-  const [yaw, setYaw] = useState<number>(0.75);
-  const [zoom, setZoom] = useState<number>(1.05);
-  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // High-performance 3D Camera Ref (60-120fps stutter-free without React re-renders)
+  const cameraRef = useRef({
+    pitch: 0.55,
+    yaw: 0.75,
+    zoom: 1.25,
+    pan: { x: 0, y: 0 },
+  });
+  const [zoomLevel, setZoomLevel] = useState<number>(1.25);
 
   // Pointer Interaction state
   const isDraggingRef = useRef(false);
   const dragButtonRef = useRef<number>(0);
   const lastMousePos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const touchStartDistRef = useRef<number | null>(null);
-  const initialZoomRef = useRef<number>(1.05);
+  const initialZoomRef = useRef<number>(1.25);
 
   // Compile math function
   const compiledFunction = useMemo(() => {
@@ -158,18 +163,36 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
 
   // Render 3D Frame
   const renderFrame = useCallback(() => {
+    const container = containerRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!container || !canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const width = canvas.width;
-    const height = canvas.height;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
     if (width === 0 || height === 0) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const targetW = Math.floor(width * dpr);
+    const targetH = Math.floor(height * dpr);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // Clear background
     ctx.fillStyle = theme.bgCanvas;
     ctx.fillRect(0, 0, width, height);
+
+    const { pitch, yaw, zoom, pan } = cameraRef.current;
+    const domainRadius =
+      Math.max(
+        Math.abs(xMax - xMin),
+        Math.abs(yMax - yMin),
+        Math.abs(zMax - zMin)
+      ) * 0.5 || 2.5;
 
     // Compute dynamic directional light in world coordinates
     const lRad = (lightAngle * Math.PI) / 180;
@@ -196,7 +219,7 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
       ];
 
       const boxProj = boxCorners.map((c) =>
-        projectWorldToScreen3D(c, pitch, yaw, zoom, pan, width, height)
+        projectWorldToScreen3D(c, pitch, yaw, zoom, pan, width, height, domainRadius)
       );
 
       const boxEdges = [
@@ -214,12 +237,12 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
       ctx.setLineDash([]);
 
       // Draw Main Coordinate Axes X, Y, Z from Origin (0, 0, 0)
-      const originProj = projectWorldToScreen3D({ x: 0, y: 0, z: 0 }, pitch, yaw, zoom, pan, width, height);
+      const originProj = projectWorldToScreen3D({ x: 0, y: 0, z: 0 }, pitch, yaw, zoom, pan, width, height, domainRadius);
       const axisLen = Math.max(xMax, yMax, zMax);
 
-      const xProj = projectWorldToScreen3D({ x: axisLen, y: 0, z: 0 }, pitch, yaw, zoom, pan, width, height);
-      const yProj = projectWorldToScreen3D({ x: 0, y: axisLen, z: 0 }, pitch, yaw, zoom, pan, width, height);
-      const zProj = projectWorldToScreen3D({ x: 0, y: 0, z: axisLen }, pitch, yaw, zoom, pan, width, height);
+      const xProj = projectWorldToScreen3D({ x: axisLen, y: 0, z: 0 }, pitch, yaw, zoom, pan, width, height, domainRadius);
+      const yProj = projectWorldToScreen3D({ x: 0, y: axisLen, z: 0 }, pitch, yaw, zoom, pan, width, height, domainRadius);
+      const zProj = projectWorldToScreen3D({ x: 0, y: 0, z: axisLen }, pitch, yaw, zoom, pan, width, height, domainRadius);
 
       // X Axis: Crimson Red
       ctx.strokeStyle = '#EF4444';
@@ -273,9 +296,9 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
       const projectedTris: ProjectedTri[] = [];
 
       triangles.forEach((tri) => {
-        const s0 = projectWorldToScreen3D(tri.p0, pitch, yaw, zoom, pan, width, height);
-        const s1 = projectWorldToScreen3D(tri.p1, pitch, yaw, zoom, pan, width, height);
-        const s2 = projectWorldToScreen3D(tri.p2, pitch, yaw, zoom, pan, width, height);
+        const s0 = projectWorldToScreen3D(tri.p0, pitch, yaw, zoom, pan, width, height, domainRadius);
+        const s1 = projectWorldToScreen3D(tri.p1, pitch, yaw, zoom, pan, width, height, domainRadius);
+        const s2 = projectWorldToScreen3D(tri.p2, pitch, yaw, zoom, pan, width, height, domainRadius);
 
         const avgDepth = (s0.depth + s1.depth + s2.depth) / 3.0;
 
@@ -367,7 +390,7 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
         { x: xMin, y: yMax, z: sliceZ },
       ];
       const projSlice = pSliceCorners.map((c) =>
-        projectWorldToScreen3D(c, pitch, yaw, zoom, pan, width, height)
+        projectWorldToScreen3D(c, pitch, yaw, zoom, pan, width, height, domainRadius)
       );
 
       ctx.fillStyle = 'rgba(16, 185, 129, 0.16)';
@@ -393,7 +416,7 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
     if (showTangentPlane && tangentData) {
       ctx.save();
       const projTangent = tangentData.points.map((p) =>
-        projectWorldToScreen3D(p, pitch, yaw, zoom, pan, width, height)
+        projectWorldToScreen3D(p, pitch, yaw, zoom, pan, width, height, domainRadius)
       );
       const point0 = projectWorldToScreen3D(
         { x: tangentX, y: tangentY, z: tangentData.z0 },
@@ -402,7 +425,8 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
         zoom,
         pan,
         width,
-        height
+        height,
+        domainRadius
       );
 
       // Tangent Plane Quad
@@ -445,7 +469,7 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
     ctx.fillStyle = theme.textSecondary;
     ctx.textAlign = 'left';
     ctx.fillText(
-      `Pitch: ${(pitch * (180 / Math.PI)).toFixed(0)}°  Yaw: ${(yaw * (180 / Math.PI)).toFixed(0)}°  Zoom: ${zoom.toFixed(2)}x`,
+      `Pitch: ${(pitch * (180 / Math.PI)).toFixed(0)}°  Yaw: ${(yaw * (180 / Math.PI)).toFixed(0)}°  Zoom: ${(zoom * 100).toFixed(0)}%`,
       16,
       height - 16
     );
@@ -465,10 +489,6 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
     tangentData,
     tangentX,
     tangentY,
-    pitch,
-    yaw,
-    zoom,
-    pan,
     xMin,
     xMax,
     yMin,
@@ -480,23 +500,6 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
   // Resize Listener
   useEffect(() => {
     const handleResize = () => {
-      const container = containerRef.current;
-      const canvas = canvasRef.current;
-      if (!container || !canvas) return;
-
-      const dpr = window.devicePixelRatio || 1;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.scale(dpr, dpr);
-      }
       renderFrame();
     };
 
@@ -505,7 +508,7 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [renderFrame]);
 
-  // Turntable Auto-Rotation Loop
+  // Turntable Auto-Rotation Loop (Zero-React-Re-renders for 60-120fps performance)
   useEffect(() => {
     let lastTime = performance.now();
 
@@ -514,7 +517,7 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
       lastTime = time;
 
       if (isAutoRotating && !isDraggingRef.current) {
-        setYaw((prev) => (prev + autoRotateSpeed * dt) % (2 * Math.PI));
+        cameraRef.current.yaw = (cameraRef.current.yaw + autoRotateSpeed * dt) % (2 * Math.PI);
       }
 
       renderFrame();
@@ -544,12 +547,17 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
 
     if (e.shiftKey || dragButtonRef.current === 2) {
       // Pan translation
-      setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      cameraRef.current.pan.x += dx;
+      cameraRef.current.pan.y += dy;
     } else {
       // 3D Orbital rotation
-      setYaw((prev) => prev + dx * 0.008);
-      setPitch((prev) => Math.max(-Math.PI * 0.48, Math.min(Math.PI * 0.48, prev - dy * 0.008)));
+      cameraRef.current.yaw = (cameraRef.current.yaw + dx * 0.008) % (2 * Math.PI);
+      cameraRef.current.pitch = Math.max(
+        -Math.PI * 0.48,
+        Math.min(Math.PI * 0.48, cameraRef.current.pitch - dy * 0.008)
+      );
     }
+    renderFrame();
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -562,8 +570,10 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    const zoomDelta = e.deltaY * -0.0015;
-    setZoom((prev) => Math.max(0.3, Math.min(4.0, prev + zoomDelta)));
+    const factor = e.deltaY < 0 ? 1.08 : 0.92;
+    cameraRef.current.zoom = Math.max(0.3, Math.min(6.0, cameraRef.current.zoom * factor));
+    setZoomLevel(cameraRef.current.zoom);
+    renderFrame();
   };
 
   // Touch handlers for mobile pinch-to-zoom
@@ -574,7 +584,7 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
         e.touches[0].clientY - e.touches[1].clientY
       );
       touchStartDistRef.current = dist;
-      initialZoomRef.current = zoom;
+      initialZoomRef.current = cameraRef.current.zoom;
     }
   };
 
@@ -585,8 +595,37 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
         e.touches[0].clientY - e.touches[1].clientY
       );
       const scale = dist / touchStartDistRef.current;
-      setZoom(Math.max(0.3, Math.min(4.0, initialZoomRef.current * scale)));
+      cameraRef.current.zoom = Math.max(0.3, Math.min(6.0, initialZoomRef.current * scale));
+      setZoomLevel(cameraRef.current.zoom);
+      renderFrame();
     }
+  };
+
+  // Explicit Zoom and Framing Handlers
+  const handleZoomIn = () => {
+    cameraRef.current.zoom = Math.min(6.0, cameraRef.current.zoom * 1.25);
+    setZoomLevel(cameraRef.current.zoom);
+    renderFrame();
+    onShowToast?.(`3D Graph Zoom: ${(cameraRef.current.zoom * 100).toFixed(0)}%`);
+  };
+
+  const handleZoomOut = () => {
+    cameraRef.current.zoom = Math.max(0.3, cameraRef.current.zoom * 0.8);
+    setZoomLevel(cameraRef.current.zoom);
+    renderFrame();
+    onShowToast?.(`3D Graph Zoom: ${(cameraRef.current.zoom * 100).toFixed(0)}%`);
+  };
+
+  const handleResetCamera = () => {
+    cameraRef.current = {
+      pitch: 0.55,
+      yaw: 0.75,
+      zoom: 1.25,
+      pan: { x: 0, y: 0 },
+    };
+    setZoomLevel(1.25);
+    renderFrame();
+    onShowToast?.('Auto-fit 3D Graph & Centered View');
   };
 
   // Preset Selection
@@ -623,7 +662,7 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden relative select-none">
+    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden relative select-none pb-[58px] md:pb-0">
       {/* Main 3D Viewport */}
       <div
         ref={containerRef}
@@ -642,7 +681,7 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none z-10 flex-wrap">
           {/* Surface Type Mode Switcher */}
           <div
-            className="pointer-events-auto flex items-center gap-1.5 p-1 rounded-xl border shadow-xl backdrop-blur-md"
+            className="pointer-events-auto flex items-center gap-1 p-1 rounded-xl border shadow-xl backdrop-blur-md"
             style={{
               backgroundColor: theme.bgCard + 'ee',
               borderColor: theme.border,
@@ -655,14 +694,15 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
                   setRawFormula('x^2 - y^2');
                 }
               }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 surfaceType === 'explicit'
                   ? 'bg-amber-500/20 text-amber-700 dark:text-amber-400 font-bold border border-amber-500/40 shadow-xs'
                   : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-70'
               }`}
             >
               <Rotate3d className="w-3.5 h-3.5 text-amber-500" />
-              <span>Explicit Surface z = f(x, y)</span>
+              <span className="hidden sm:inline">Explicit Surface z = f(x, y)</span>
+              <span className="sm:hidden">Explicit (z)</span>
             </button>
 
             <button
@@ -672,20 +712,21 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
                   setRawFormula('x^2 + y^2 - z^2 - 1 = 0');
                 }
               }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 surfaceType === 'implicit'
                   ? 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 font-bold border border-indigo-500/40 shadow-xs'
                   : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-70'
               }`}
             >
               <Layers className="w-3.5 h-3.5 text-indigo-500" />
-              <span>Implicit Contour F(x, y, z) = 0</span>
+              <span className="hidden sm:inline">Implicit Contour F(x, y, z) = 0</span>
+              <span className="sm:hidden">Implicit (F=0)</span>
             </button>
           </div>
 
           {/* Quick Actions (Play/Pause, Snapshot, Sidebar Toggle, Back to Studio) */}
           <div
-            className="pointer-events-auto flex items-center gap-1.5 p-1 rounded-xl border shadow-xl backdrop-blur-md"
+            className="pointer-events-auto flex items-center gap-1 p-1 rounded-xl border shadow-xl backdrop-blur-md"
             style={{
               backgroundColor: theme.bgCard + 'ee',
               borderColor: theme.border,
@@ -711,11 +752,16 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
 
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              title={isSidebarOpen ? 'Hide Parameters Panel' : 'Show Parameters Panel'}
-              className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-xs"
-              style={{ color: theme.textPrimary }}
+              title={isSidebarOpen ? 'Hide Parameters Panel (Fullscreen View)' : 'Show Parameters Panel'}
+              className={`p-2 rounded-lg transition-colors text-xs flex items-center gap-1 ${
+                isSidebarOpen ? 'bg-amber-500/20 text-amber-700 dark:text-amber-400 font-bold' : 'hover:bg-black/5 dark:hover:bg-white/5'
+              }`}
+              style={{ color: isSidebarOpen ? undefined : theme.textPrimary }}
             >
               <Sliders className="w-4 h-4" />
+              <span className="hidden md:inline text-3xs font-semibold">
+                {isSidebarOpen ? 'Collapse' : 'Controls'}
+              </span>
             </button>
 
             {onBackToStudio && (
@@ -731,8 +777,8 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
           </div>
         </div>
 
-        {/* Bottom Floating Presets Bar */}
-        <div className="absolute bottom-9 left-3 right-3 flex items-center justify-center gap-1.5 overflow-x-auto pointer-events-none z-10 pb-1">
+        {/* Bottom Floating Presets Bar (Positioned above mobile bottom bar) */}
+        <div className="absolute bottom-16 md:bottom-9 left-3 right-3 flex items-center justify-center gap-1.5 overflow-x-auto pointer-events-none z-10 pb-1">
           <div
             className="pointer-events-auto flex items-center gap-1.5 p-1.5 rounded-xl border shadow-2xl backdrop-blur-md max-w-full overflow-x-auto no-scrollbar"
             style={{
@@ -764,9 +810,56 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
           </div>
         </div>
 
+        {/* Floating Quick Camera Controls Dock (Zoom In, Zoom Out, Auto-Fit, Theater Toggle) */}
+        <div
+          className="absolute right-4 bottom-20 md:bottom-6 flex flex-col items-center gap-1.5 z-20 pointer-events-auto shadow-2xl rounded-2xl p-1.5 border backdrop-blur-md"
+          style={{
+            backgroundColor: theme.bgCard + 'ee',
+            borderColor: theme.border,
+          }}
+        >
+          <button
+            onClick={handleZoomIn}
+            title="Enlarge 3D Graph (Zoom In)"
+            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all text-xs font-bold"
+            style={{ color: theme.textPrimary }}
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={handleZoomOut}
+            title="Shrink 3D Graph (Zoom Out)"
+            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all text-xs font-bold"
+            style={{ color: theme.textPrimary }}
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+
+          <div className="w-5 h-px bg-stone-300 dark:bg-stone-700 my-0.5" />
+
+          <button
+            onClick={handleResetCamera}
+            title="Auto-Fit & Center 3D Graph"
+            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all text-xs"
+            style={{ color: theme.accent }}
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            title={isSidebarOpen ? 'Expand to Fullscreen Theater' : 'Show Controls Sidebar'}
+            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all text-xs"
+            style={{ color: isSidebarOpen ? theme.textSecondary : theme.accent }}
+          >
+            {isSidebarOpen ? <Minimize2 className="w-4 h-4" /> : <Sliders className="w-4 h-4" />}
+          </button>
+        </div>
+
         {/* Floating Hint */}
         <div
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none text-3xs font-mono opacity-50 px-3 py-0.5 rounded-full"
+          className="absolute bottom-14 md:bottom-2 left-1/2 -translate-x-1/2 pointer-events-none text-3xs font-mono opacity-50 px-3 py-0.5 rounded-full"
           style={{ color: theme.textSecondary, backgroundColor: theme.bgCard + '88' }}
         >
           Drag: Orbit • Shift+Drag: Pan • Pinch/Scroll: Zoom
@@ -791,16 +884,11 @@ export const Surface3DCanvas: React.FC<Surface3DCanvasProps> = ({
               </h3>
             </div>
             <button
-              onClick={() => {
-                setPitch(0.55);
-                setYaw(0.75);
-                setZoom(1.05);
-                setPan({ x: 0, y: 0 });
-              }}
+              onClick={handleResetCamera}
               className="text-2xs font-mono underline opacity-70 hover:opacity-100 flex items-center gap-1"
             >
               <Undo className="w-3 h-3" />
-              <span>Reset</span>
+              <span>Reset View</span>
             </button>
           </div>
 
