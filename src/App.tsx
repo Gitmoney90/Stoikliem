@@ -29,6 +29,7 @@ import { TheoryPublicationTab } from './components/TheoryPublicationTab';
 import { SubmissionArchiveTab } from './components/SubmissionArchiveTab';
 import { ProofProverModal } from './components/ProofProverModal';
 import { Hyper4DCanvas } from './components/Hyper4DCanvas';
+import { Surface3DCanvas } from './components/Surface3DCanvas';
 import { P2PEngine, P2PConnectionState } from './lib/webrtc';
 import { ChevronLeft, ChevronRight, CheckCircle2, Sparkles } from 'lucide-react';
 
@@ -83,12 +84,19 @@ export default function App() {
     p2pEngine.onStateChange = (st) => setP2PConnectionState(st);
   }, [p2pEngine]);
 
-  // Main Tab State: 'studio' | 'theorems' | 'submissions' | 'hyperspace'
+  // Main Tab State: 'studio' | 'surfaces_3d' | 'theorems' | 'submissions' | 'hyperspace'
   const [activeMainTab, setActiveMainTab] = useState<MainWorkspaceTab>('studio');
   const [initialPostId, setInitialPostId] = useState<string | null>(null);
 
   const handleSelectMainTab = (tab: MainWorkspaceTab) => {
     setActiveMainTab(tab);
+    if (tab === 'surfaces_3d') {
+      setGridMode('surfaces_3d');
+    } else if (tab === 'hyperspace') {
+      setGridMode('hyper_4d');
+    } else if (gridMode === 'surfaces_3d' || gridMode === 'hyper_4d') {
+      setGridMode('cartesian');
+    }
     try {
       const url = new URL(window.location.href);
       if (tab === 'studio') {
@@ -99,6 +107,17 @@ export default function App() {
       }
       window.history.replaceState({}, '', url.toString());
     } catch {}
+  };
+
+  const handleSelectGridMode = (mode: GridMode) => {
+    setGridMode(mode);
+    if (mode === 'surfaces_3d') {
+      setActiveMainTab('surfaces_3d');
+    } else if (mode === 'hyper_4d') {
+      setActiveMainTab('hyperspace');
+    } else if (activeMainTab === 'surfaces_3d' || activeMainTab === 'hyperspace') {
+      setActiveMainTab('studio');
+    }
   };
 
   // Check URL parameters for direct tab / theorem dispatch / p2p room
@@ -120,6 +139,10 @@ export default function App() {
         setActiveMainTab('submissions');
       } else if (tabParam === 'hyperspace' || tabParam === '4d') {
         setActiveMainTab('hyperspace');
+        setGridMode('hyper_4d');
+      } else if (tabParam === 'surfaces_3d' || tabParam === '3d' || tabParam === 'surface') {
+        setActiveMainTab('surfaces_3d');
+        setGridMode('surfaces_3d');
       }
     } catch {}
   }, []);
@@ -678,7 +701,7 @@ export default function App() {
         theme={theme}
         themeId={themeId}
         gridMode={gridMode}
-        onSelectGridMode={setGridMode}
+        onSelectGridMode={handleSelectGridMode}
         activeMainTab={activeMainTab}
         onSelectMainTab={handleSelectMainTab}
         onToggleTheme={() => setThemeId(themeId === 'slate' || themeId === 'engraving' ? 'parchment' : 'slate')}
@@ -756,6 +779,28 @@ export default function App() {
             handleSelectMainTab('studio');
           }}
           onShowToast={showToast}
+        />
+      ) : activeMainTab === 'surfaces_3d' || gridMode === 'surfaces_3d' ? (
+        <Surface3DCanvas
+          theme={theme}
+          onPlot2DSlice={(rawText) => {
+            const newId = `expr_${Date.now()}`;
+            const nextColor = theme.curvePalette[expressions.length % theme.curvePalette.length];
+            const newExpr: GraphExpression = {
+              id: newId,
+              rawText,
+              color: nextColor,
+              visible: true,
+              type: 'explicit',
+            };
+            setExpressions((prev) => [...prev, newExpr]);
+            setActiveExpressionId(newId);
+          }}
+          onShowToast={showToast}
+          onBackToStudio={() => {
+            if (gridMode === 'surfaces_3d') setGridMode('cartesian');
+            handleSelectMainTab('studio');
+          }}
         />
       ) : activeMainTab === 'hyperspace' || gridMode === 'hyper_4d' ? (
         <Hyper4DCanvas
@@ -889,7 +934,7 @@ export default function App() {
         onOpenResearch={() => handleSelectMainTab('theorems')}
         onOpenProofProver={() => handleOpenProofProver()}
         gridMode={gridMode}
-        onSelectGridMode={setGridMode}
+        onSelectGridMode={handleSelectGridMode}
         activeMainTab={activeMainTab}
         onSelectMainTab={handleSelectMainTab}
       />

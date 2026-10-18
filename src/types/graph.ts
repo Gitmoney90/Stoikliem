@@ -86,10 +86,11 @@ export type GridMode =
   | 'trig'
   | 'complex'
   | 'complex_vector'
+  | 'surfaces_3d'
   | 'raymarch_3d'
   | 'hyper_4d';
 
-export type MainWorkspaceTab = 'studio' | 'theorems' | 'submissions' | 'hyperspace';
+export type MainWorkspaceTab = 'studio' | 'surfaces_3d' | 'theorems' | 'submissions' | 'hyperspace';
 
 export type ThemeId = 'parchment' | 'slate' | 'cartographer' | 'engraving';
 

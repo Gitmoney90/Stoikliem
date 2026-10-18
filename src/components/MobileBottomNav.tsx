@@ -20,6 +20,7 @@ import {
   ScrollText,
   ShieldCheck,
   Box,
+  Rotate3d,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { MainWorkspaceTab } from '../types/graph';
@@ -175,12 +176,18 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                       ? '◎ Polar'
                       : gridMode === 'trig'
                       ? '∿ Trig'
+                      : gridMode === 'surfaces_3d'
+                      ? '◇ 3D Surface'
+                      : gridMode === 'hyper_4d'
+                      ? '⬢ 4D Space'
                       : '☩ Cartesian'}
                   </span>
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 text-2xs">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 text-2xs">
                   {[
                     { id: 'cartesian', label: '☩ Cartesian' },
+                    { id: 'surfaces_3d', label: '◇ 3D Surface' },
+                    { id: 'hyper_4d', label: '⬢ 4D Space' },
                     { id: 'complex', label: 'ℂ Complex' },
                     { id: 'complex_vector', label: '𝔉 Vector' },
                     { id: 'polar', label: '◎ Polar' },
@@ -293,6 +300,26 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   </div>
                 </button>
               )}
+
+              {/* 3D Surface & Multivariable Plotter */}
+              <button
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  onSelectMainTab?.('surfaces_3d');
+                }}
+                className="min-h-[48px] p-3 rounded-xl border flex items-center gap-2.5 font-medium text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style={{
+                  backgroundColor: theme.bgCard,
+                  borderColor: theme.border,
+                  color: theme.textPrimary,
+                }}
+              >
+                <Rotate3d className="w-4 h-4 shrink-0 text-amber-500" />
+                <div className="flex flex-col text-left">
+                  <span className="truncate">3D Surfaces</span>
+                  <span className="text-3xs text-amber-600 dark:text-amber-400 font-semibold">z=f(x,y) & F=0</span>
+                </div>
+              </button>
 
               {/* 4D HyperSpace (HyperCube & Hypersphere) */}
               <button

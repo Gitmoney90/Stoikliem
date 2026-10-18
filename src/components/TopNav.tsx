@@ -21,6 +21,7 @@ import {
   Check,
   ShieldCheck,
   Box,
+  Rotate3d,
 } from 'lucide-react';
 import { MainWorkspaceTab } from '../types/graph';
 
@@ -121,6 +122,24 @@ export const TopNav: React.FC<TopNavProps> = ({
         >
           <span className="font-serif italic font-bold">f(x)</span>
           <span>Studio Canvas</span>
+        </button>
+
+        {/* Workspace Tab 2: 3D Surface & Contour Explorer */}
+        <button
+          onClick={() => onSelectMainTab?.('surfaces_3d')}
+          title="Explicit 3D Surface Renderer (z = f(x, y)) & Implicit 3D Contour Level Sets"
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap shrink-0 border ${
+            activeMainTab === 'surfaces_3d'
+              ? 'font-bold bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/40 shadow-2xs'
+              : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
+          }`}
+          style={{ color: activeMainTab === 'surfaces_3d' ? undefined : theme.textPrimary }}
+        >
+          <Rotate3d className="w-3.5 h-3.5 text-amber-500" />
+          <span>3D Surface & Contour</span>
+          <span className="px-1.5 py-0.2 rounded text-3xs font-mono font-bold bg-amber-500/25 text-amber-800 dark:text-amber-300">
+            3D
+          </span>
         </button>
 
         {/* Workspace Tab 2: Theorems & Vlog Publications */}
@@ -267,6 +286,8 @@ export const TopNav: React.FC<TopNavProps> = ({
                 ? 'Plane: Polar'
                 : gridMode === 'trig'
                 ? 'Plane: Trig (π)'
+                : gridMode === 'surfaces_3d'
+                ? '3D Surface & Contour'
                 : gridMode === 'hyper_4d'
                 ? 'Plane: 4D HyperSpace'
                 : 'Plane: Cartesian'}
@@ -289,6 +310,7 @@ export const TopNav: React.FC<TopNavProps> = ({
 
               {[
                 { id: 'cartesian', label: '☩ Cartesian Plane', sub: '(x, y) Standard Axes' },
+                { id: 'surfaces_3d', label: '◇ 3D Surface & Contour', sub: 'z = f(x, y) & F(x, y, z) = 0' },
                 { id: 'complex', label: 'ℂ Complex Plane', sub: 'Re(z) & Im(z) Argand diagram' },
                 { id: 'complex_vector', label: '𝔉 Complex Vector Field', sub: 'Polya flow & phase needles' },
                 { id: 'polar', label: '◎ Polar Coordinates', sub: '(r, θ) Concentric Circles' },

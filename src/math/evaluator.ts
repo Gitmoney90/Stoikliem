@@ -49,6 +49,7 @@ export function astToJS(node: ASTNode, angleUnit: 'rad' | 'deg' = 'rad'): string
       const v = node.name.toLowerCase();
       if (v === 'x') return 'x';
       if (v === 'y') return 'y';
+      if (v === 'z') return 'z';
       if (v === 't') return 't';
       if (v === 'theta' || v === 'th') return 'theta';
       if (v === 'r') return 'r';
@@ -168,6 +169,32 @@ export function compileExpression(
   `;
 
   // Safely construct function with fact and gamma in closure
+  const creator = new Function('fact', 'gamma', fnBody);
+  return creator(factorial, gamma);
+}
+
+export type Compiled3DFn = (x: number, y: number, z: number, scope?: EvalScope) => number;
+
+export function compile3DExpression(
+  exprStr: string,
+  angleUnit: 'rad' | 'deg' = 'rad'
+): Compiled3DFn {
+  const parser = new Parser(exprStr);
+  const ast = parser.parse();
+  const code = astToJS(ast, angleUnit);
+
+  const fnBody = `
+    return function(x, y, z, scope) {
+      scope = scope || {};
+      try {
+        var res = ${code};
+        return isNaN(res) ? NaN : res;
+      } catch (e) {
+        return NaN;
+      }
+    };
+  `;
+
   const creator = new Function('fact', 'gamma', fnBody);
   return creator(factorial, gamma);
 }
